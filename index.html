@@ -82,8 +82,8 @@ const BAG={coins:500,feed:3,superFeed:0,legendFeed:0,rep100:0,rep200:0,rep400:0,
 const STATUS_NAMES={burn:'灼傷',poison:'中毒',paralyze:'麻痺',freeze:'冰凍',sleep:'睡眠'};
 const statInit=m=>{m.iv=m.iv||{hp:rnd(0,5),atk:rnd(0,5),def:rnd(0,5),spa:rnd(0,5),spd:rnd(0,5),speed:rnd(0,5)};m.atk=m.atk??(m.lv*2+5+(m.iv.atk||0));m.love=m.love||0;m.status=m.status||'';m.pp=m.pp||m.mv.map(i=>MOVES[i]?.pp||10);m.maxpp=m.maxpp||m.pp.map((_,i)=>MOVES[m.mv[i]]?.pp||10);m.def=m.def??(8+(m.iv.def||0));m.spa=m.spa??(m.atk+2+(m.iv.spa||0));m.spd=m.spd??(m.atk+2+(m.iv.spd||0));m.speed=m.speed??(5+(m.iv.speed||0));return m};
 const weatherLabel=()=>`時間${WORLD.time}:00 ${WORLD.weather}`;
-	const weatherForMap=()=>{const forest=['forest','forestDeep','forestGrove','forestCanopy','forestMoss'].includes(cur),sea=['sea','undersea','underseaDeep','trench','trenchEast','trenchWest'].includes(cur);if(forest&&WORLD.steps%5===0)return'花粉風';if(sea&&WORLD.steps%7===0)return'潮汐月夜';if((WORLD.time>=18||WORLD.time<6)&&WORLD.steps%11===0)return'流星雨';if(cur==='volc'||cur==='volcIn')return WORLD.steps%9===0?'熱浪':null;return null};
-	const advanceWorld=()=>{WORLD.steps++;WORLD.time=6+(WORLD.steps%16);WORLD.weather=weatherForMap()||WEATHER[(Math.floor(WORLD.steps/8)+(WORLD.weatherSeed||0))%WEATHER.length]};
+	const weatherForMap=()=>{const blk=Math.floor(WORLD.steps/12),forest=['forest','forestDeep','forestGrove','forestCanopy','forestMoss'].includes(cur),sea=['sea','undersea','underseaDeep','trench','trenchEast','trenchWest'].includes(cur);if(forest&&blk%4===0)return'花粉風';if(sea&&blk%5===0)return'潮汐月夜';if((WORLD.time>=18||WORLD.time<6)&&blk%7===0)return'流星雨';if(cur==='volc'||cur==='volcIn')return blk%4===0?'熱浪':null;return null};
+	const advanceWorld=()=>{WORLD.steps++;WORLD.time=6+(Math.floor(WORLD.steps/12)%16);WORLD.weather=weatherForMap()||WEATHER[(Math.floor(WORLD.steps/60)+(WORLD.weatherSeed||0))%WEATHER.length]};
 const statusLabel=m=>m.status?`【${STATUS_NAMES[m.status]||m.status}】`:'';
 const QUESTS={patrol:{title:'草原巡查',offer:'水族城附近最近出現了許多野生怪物，願意去巡查一次嗎？',progress:()=>`進度：前往藍濱水族城並完成 1 場戰鬥（目前 ${FL.wins||0}/1）。`,done:()=>!!FL.vroute&&(FL.wins||0)>=1,reward:'exp',give:async()=>{pig.exp+=18;await say('獲得 18 點經驗值！')},doneText:'太好了，草原路已經安全多了！'},bottle:{title:'漂流瓶的回信',offer:'港口城有人想找回漂流瓶中的回信，能幫忙嗎？',progress:()=>`進度：找到海域漂流瓶（${FL['secret:sea:6:8']?'已完成':'尚未完成'}）。`,done:()=>!!FL['secret:sea:6:8'],reward:'maxhp',give:async()=>{party.forEach(m=>{m.max+=3;m.hp=m.max});await say('全隊最大體力提升 3 點！')},doneText:'這封回信終於送到了，謝謝你！'},rare:{title:'月光靈研究',offer:'研究員想確認月光靈是否真的存在，能帶回牠的圖鑑紀錄嗎？',progress:()=>`進度：捕獲月光靈（${dex.has('月光靈')?'已完成':'尚未完成'}）。`,done:()=>dex.has('月光靈'),reward:'heal',give:async()=>{party.forEach(m=>m.hp=m.max);await say('研究員替隊伍完全恢復了體力！')},doneText:'太棒了！月光靈的資料會成為重要研究成果！'},legend:{title:'傳說試煉',offer:'完成火山裂隙的探索，便能取得唯一的傳說捕獲飼料。要接受試煉嗎？',progress:()=>`進度：找到熔岩裂隙（${FL['secret:volc:6:8']?'已完成':'尚未完成'}）。`,done:()=>!!FL['secret:volc:6:8'],give:async()=>{BAG.legendFeed=1;await say('獲得唯一的「傳說必捕飼料」！每次遊戲只能取得 1 枚。')},doneText:'你通過了傳說試煉！'}};
 const Pl={x:3,y:4,px:0,py:0,dir:'down',mv:false,prog:0,tx:0,ty:0};
@@ -226,6 +226,8 @@ const legTile=id=>(x,y)=>{const r=ENEMIES[id].n.includes('兔');ell(x+8,y+10,6,5
 put('town','H',[[14,6],[16,6],[14,7],[16,7]]);put('town','T',[[15,6]]);put('town','S',[[15,7]]);put('town','.',[[15,8]]);
 MAPS.shop=['#########','#.......#','#.......#','#.......#','#.......#','#.......#','#.......#','#.......#','####.####'];put('shop','H',[[3,3],[5,3]]);
 Object.assign(WARP,{'town,15,7':['shop',4,7],'shop,4,8':['town',15,8]});Object.assign(NPCS.find(n=>n.shop),{m:'shop',x:4,y:3});
+for(const m of ['route','school','a2','a3','a4','a5','a6'])NPCS.push(mk(m,m==='route'?6:5,5,2,'shop_'+m,['雜貨店老闆：歡迎光臨！'],null,null,null,null,null,'store'));
+
 /* ---- v5 ---- */
 [['route',9,11,'school',9,0],['a2',15,11,'a3',2,0],['a4',18,0,'a5',2,11]].forEach(([a,xa,ya,b,xb,yb])=>{delete WARP[`${a},19,6`];delete WARP[`${b},0,6`];put(a,'#',[[19,6]]);put(b,'#',[[0,6]]);put(a,'.',[[xa,ya]]);put(b,'.',[[xb,yb]]);WARP[`${a},${xa},${ya}`]=[b,xb,yb?yb-1:1];WARP[`${b},${xb},${yb}`]=[a,xa,ya?ya-1:1]});
 const RARE=[95,96,97,98,99,100,101,102,103,104,7,61,62,63,64,105,106,107,108],TMV={},LEARN2={};
@@ -633,8 +635,8 @@ async function craftMenu(){
  }
  S.mode='map';
 }
-async function shopTalk(){if(WORLD.time<7||WORLD.time>=21){await say('豬豬雜貨店目前休息中，早上 7 點到晚上 9 點營業。');return}S.mode='event';const I=[['素材強化',0,craftMenu],['高級飼料',80,()=>BAG.superFeed++],['補血藥',40,()=>BAG.heal=(BAG.heal||0)+1],['脫逃繩',70,()=>BAG.rope=(BAG.rope||0)+1],['避怪藥水100',60,()=>BAG.rep100++],['避怪藥水200',100,()=>BAG.rep200++],['避怪藥水400',180,()=>BAG.rep400++]];
- for(;;){S.prompt=`豬豬雜貨店\n金幣：${BAG.coins}\n補血藥回40`;const c=await choose([...I.map(x=>`${x[0]}　${x[1]}`),'離開'],1,'right',true);if(c<0||c===I.length)break;if(BAG.coins<I[c][1]){await say('金幣不夠！');continue}BAG.coins-=I[c][1];I[c][2]();await say('購買成功！')}S.mode='map'}
+async function shopTalk(){S.mode='event';const I=[['素材強化',null,craftMenu],['普通飼料',15,()=>BAG.feed++],['高級飼料',80,()=>BAG.superFeed++],['補血藥',40,()=>BAG.heal=(BAG.heal||0)+1],['脫逃繩',70,()=>BAG.rope=(BAG.rope||0)+1],['避怪藥水100',60,()=>BAG.rep100++],['避怪藥水200',100,()=>BAG.rep200++],['避怪藥水400',180,()=>BAG.rep400++]];
+ for(;;){S.prompt=`雜貨店\n金幣：${BAG.coins}\n補血藥回40`;const c=await choose([...I.map(x=>x[1]===null?x[0]:`${x[0]}　${x[1]}`),'離開'],1,'right',true);if(c<0||c===I.length)break;const it=I[c];if(it[1]===null){await it[2]();S.mode='event';continue}if(BAG.coins<it[1]){await say('金幣不夠！');continue}BAG.coins-=it[1];it[2]();await say('購買成功！')}S.mode='map'}
 async function questTalk(N){const q=QUESTS[N.q];S.mode='event';const key='q:'+N.q;if(!q){S.mode='map';return}if(!FL[key]){await say(q.offer);if(await choose(['接受任務','先等等'],1,'right')===0){FL[key]='active';await say('任務已加入！可以按 B 開啟任務查看進度。')}}else if(FL[key]==='active'){if(q.done()){FL[key]='done';await say(q.doneText);await q.give();await say('支線任務完成！')}else await say(q.progress())}else await say('這項任務已經完成了，謝謝你的幫忙！');S.mode='map'}
 async function talk(N){
  S.mode='event';
@@ -676,7 +678,7 @@ async function start(){if(has()){S.mode='event';S.prompt='要繼續\n冒險嗎�
  await say('用方向鍵移動。草叢裡會遇到野生怪獸。面對路人按 A 可以對話。');await say('用飼料收服怪獸，組成六隻隊伍！注意屬性相剋，打贏七個道館，還有 7 隻傳說怪物等著你挑戰！');
  S.mode='map';
 }
-function walk(x,y){if(!(x>=0&&y>=0&&x<MW&&y<MH))return false;const tile=MAP[y][x];if((surf?'#HLrT':'#HLrTw').includes(tile)||npcAt(x,y))return false;if(WORLD.weather==='微雪'&&tile==='g'&&((WORLD.steps+x+y)%5===0))return false;if(WORLD.weather==='雷雨'&&tile==='w'&&!surf)return false;if(WORLD.weather==='沙塵暴'&&tile==='g'&&((WORLD.steps+x)%4===0))return false;if(WORLD.weather==='濃霧'&&((WORLD.steps+x+y)%11===0))return false;if(WORLD.weather==='花粉風'&&tile==='g'&&((WORLD.steps+x)%9===0))return false;if(WORLD.weather==='熱浪'&&tile==='w'&&!surf)return false;return true}
+function walk(x,y){if(!(x>=0&&y>=0&&x<MW&&y<MH))return false;const tile=MAP[y][x];if((surf?'#HLrT':'#HLrTw').includes(tile)||npcAt(x,y))return false;return true}
 async function arrive(){
  if(S.mode!=='map')return;advanceWorld();party.forEach(m=>{statInit(m);m.love=Math.min(100,(m.love||0)+1)});let wk=WARP[`${cur},${Pl.x},${Pl.y}`];if(cur==='underseaDeep'&&Pl.x===10&&Pl.y===1)wk=[FL.seaRoute?'trenchWest':'trenchEast',1,1];if(cur==='forestDeep'&&Pl.x===10&&Pl.y===1)wk=[FL.forestRoute?'forestMoss':'forestCanopy',1,1];const c=MAP[Pl.y][Pl.x];if(wk){const from=cur;setMap(wk[0]);Pl.x=wk[1];Pl.y=wk[2];if(from==='underseaDeep'||from==='forestDeep')await say(from==='underseaDeep'?'海流把你捲向隨機海溝支路！':'樹根裂開，露出新的森林秘境分區！');return}if(surf&&c!=='w')surf=false;if(BAG.repel>0)BAG.repel--;
  if(c==='B'){await mapBoss();return}if(c==='R'){await switchCart(`${cur}:${Pl.x}:${Pl.y}`);return}if(c==='S'){await switchPuzzle(`${cur}:${Pl.x}:${Pl.y}`);return}if(c==='Z'){await timeGate(`${cur}:${Pl.x}:${Pl.y}`);return}if(c==='M'){await multiPuzzle(`${cur}:${Pl.x}:${Pl.y}`);return}if(c==='K'){await rideCart(`${cur}:${Pl.x}:${Pl.y}`);return}if(c==='U'){await useLift(`${cur}:${Pl.x}:${Pl.y}`);return}if(c==='I'){const it=ITEM_DATA[`${cur}:${Pl.x}:${Pl.y}`];if(it&&!FL['item:'+cur+':'+Pl.x+':'+Pl.y]){FL['item:'+cur+':'+Pl.x+':'+Pl.y]=1;it.give();await say(`找到${it.name}！`);MAP[Pl.y]=MAP[Pl.y].slice(0,Pl.x)+'.'+MAP[Pl.y].slice(Pl.x+1);return}}if(c==='q'){const h=HIDDEN_ROADS[`${cur}:${Pl.x}:${Pl.y}`];if(h&&!FL['hidden:'+cur]){h.reveal();await say(`發現隱藏道路「${h.name}」！`);return}}if(c==='P'){await rockPuzzle(`${cur}:${Pl.x}:${Pl.y}`);return}if(c==='E'){const sk=`secret:${cur}:${Pl.x}:${Pl.y}`,q=SECRETS[sk];if(q&&!FL[sk]){S.mode='event';for(const line of q.lines)await say(line);FL[sk]=1;if(q.reward==='maxhp'){pig.max+=6;pig.hp=pig.max;await say('小豬的最大體力提升 6 點！')}if(q.reward==='exp'){pig.exp+=12;await say('小豬獲得了 12 點探索經驗！')}if(q.reward==='heal'){party.forEach(m=>m.hp=m.max);await say('隊伍全員恢復體力！')}if(q.reward==='rare'){FL.rare=1;await say('稀有怪物的出現率提高了！')}if(q.reward==='minehp'){party.forEach(m=>{m.max+=4;m.hp=m.max});await say('隊伍全員最大體力提升 4 點！')}if(q.reward==='volcbuff'){FL.volcBuff=1;await say('火屬性招式威力提升了！')}if(q.reward==='icebuff'){FL.iceBuff=1;party.forEach(m=>m.hp=m.max);await say('冰屬性招式威力提升，隊伍也恢復體力！')}if(q.reward==='labrare'){FL.labPower=1;FL.rare=1;await say('研究所資料解鎖，稀有怪物出現率提升了！')}if(q.reward==='ruinsbuff'){party.forEach(m=>{m.def=(m.def||8)+2;m.spd=(m.spd||8)+2});await say('隊伍防禦與特防提升了！')}if(q.reward==='dreambuff'){FL.dreamBuff=1;await say('光與暗屬性招式威力提升了！')}if(q.reward==='seabuff'){FL.seaBuff=1;party.forEach(m=>m.hp=m.max);await say('水屬性招式威力提升，隊伍恢復體力！')}S.mode='map';return}}if(c==='h'||c==='C'){center(c==='h');return}if(c==='X'&&hasLegendLeft()){legend2();return}if(0){S.mode='event';await say('這是豬窩小屋。豬媽媽在等你回家。');party.forEach(m=>m.hp=m.max);await say('小豬睡了一覺，體力全部恢復了！');S.prompt='要記錄\n冒險嗎？';if(await choose(['存檔','不用'],1,'right')===0)await say(save()?'冒險已經記錄下來了！':'無法存檔……');S.mode='map'}
@@ -762,10 +764,10 @@ function tile(c,x,y,sx,sy){
 }
 function drawWeatherFx(){const night=WORLD.time>=19||WORLD.time<6;ctx.save();if(night){ctx.fillStyle='rgba(20,18,70,.28)';ctx.fillRect(0,0,160,144);ctx.fillStyle='rgba(230,235,255,.7)';for(let i=0;i<8;i++){const x=(i*29+S.t)%160,y=(i*17)%80;ctx.fillRect(x,y,1,1)}}else if(WORLD.time>=17&&WORLD.time<19){ctx.fillStyle='rgba(255,150,80,.16)';ctx.fillRect(0,0,160,144)}if(WORLD.weather==='小雨'){ctx.strokeStyle='rgba(100,190,255,.72)';ctx.lineWidth=1;for(let i=0;i<18;i++){const x=(i*17+S.t*2)%160,y=(i*11+S.t*3)%144;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-2,y+6);ctx.stroke()}}if(WORLD.weather==='微雪'){ctx.fillStyle='rgba(255,255,255,.9)';for(let i=0;i<20;i++){const x=(i*23+S.t)%160,y=(i*13+S.t/2)%144;ctx.fillRect(x,y,2,2)}}if(WORLD.weather==='雷雨'){ctx.strokeStyle='rgba(80,150,255,.75)';for(let i=0;i<16;i++){const x=(i*19+S.t*2)%160,y=(i*9+S.t*3)%144;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-3,y+8);ctx.stroke()}if((S.t>>4)%20===0){ctx.fillStyle='rgba(255,255,255,.35)';ctx.fillRect(0,0,160,144)}}if(WORLD.weather==='濃霧'){ctx.fillStyle='rgba(220,230,235,.34)';ctx.fillRect(0,0,160,144)}if(WORLD.weather==='沙塵暴'){ctx.fillStyle='rgba(210,170,90,.45)';ctx.fillRect(0,0,160,144);ctx.fillStyle='rgba(245,220,150,.7)';for(let i=0;i<16;i++)ctx.fillRect((i*17+S.t*2)%160,(i*11)%144,3,1)}if(WORLD.weather==='花粉風'){ctx.fillStyle='rgba(190,230,105,.8)';for(let i=0;i<22;i++){const x=(i*19+S.t*1.4)%160,y=(i*13+S.t*.7)%144;ctx.fillRect(x,y,2,2)}ctx.fillStyle='rgba(180,220,100,.12)';ctx.fillRect(0,0,160,144)}if(WORLD.weather==='潮汐月夜'){ctx.fillStyle='rgba(70,180,220,.16)';ctx.fillRect(0,0,160,144);ctx.strokeStyle='rgba(120,230,255,.7)';for(let i=0;i<5;i++){ctx.beginPath();ctx.arc(20+i*34,112-(S.t%12),12,Math.PI,0);ctx.stroke()}}if(WORLD.weather==='流星雨'){ctx.strokeStyle='rgba(255,240,170,.9)';for(let i=0;i<10;i++){const x=(i*31+S.t*2)%180-10,y=(i*17+S.t)%90;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-6,y+7);ctx.stroke()}}if(WORLD.weather==='熱浪'){ctx.fillStyle='rgba(255,130,50,.16)';ctx.fillRect(0,0,160,144);ctx.strokeStyle='rgba(255,210,100,.45)';for(let i=0;i<7;i++){const x=i*27+(S.t%10);ctx.beginPath();ctx.moveTo(x,120);ctx.quadraticCurveTo(x+6,110,x,100);ctx.stroke()}}ctx.restore()}
 function drawMap(){
- const px=Pl.x*16+(Pl.mv?D[Pl.dir][0]*Pl.prog:0),py=Pl.y*16+(Pl.mv?D[Pl.dir][1]*Pl.prog:0);
+ const pr=Math.round(Pl.prog),px=Pl.x*16+(Pl.mv?D[Pl.dir][0]*pr:0),py=Pl.y*16+(Pl.mv?D[Pl.dir][1]*pr:0);
  const cx=Math.max(0,Math.min(MW*16-160,px-72)),cy=Math.max(0,Math.min(MH*16-144,py-64));
  for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){const sx=x*16-cx,sy=y*16-cy;if(sx>-16&&sx<160&&sy>-16&&sy<144)tile(MAP[y][x],x,y,sx,sy)}
- NPCS.forEach(n=>{if(n.m===cur&&!(n.hide&&FL[n.id]))(n.sp||npcSprite)(n.x*16-cx,n.y*16-cy,n.c)});const f=Pl.mv?(Pl.prog>>3)&1:0;if(surf)ell(px-cx+8,py-cy+14,9,3,3);pigMap(px-cx,py-cy-(Pl.mv&&f?1:0),Pl.dir,f);drawWeatherFx();
+ NPCS.forEach(n=>{if(n.m===cur&&!(n.hide&&FL[n.id]))(n.sp||npcSprite)(n.x*16-cx,n.y*16-cy,n.c)});const f=Pl.mv?(pr>>3)&1:0;if(surf)ell(px-cx+8,py-cy+14,9,3,3);pigMap(px-cx,py-cy-(Pl.mv&&f?1:0),Pl.dir,f);drawWeatherFx();
  R(0,0,160,12,0);R(0,12,160,1,3);T(`Lv${pig.lv} HP ${pig.hp}/${pig.max}`,3,1,3,7);T(weatherLabel(),92,12,3,7);T(`${nb()?'★'+nb()+' ':''}圖鑑 ${dex.size}/${ENEMIES.length}`,92,0,3,8);T(`$${BAG.coins}`,3,12,2,7);
 }
 function hpbar(x,y,w,r){T('HP',x,y-2,3,7);R(x+12,y,w,5,3);R(x+13,y+1,w-2,3,0);R(x+13,y+1,Math.round((w-2)*Math.max(0,r)),3,r>.25?2:3)}
@@ -805,6 +807,7 @@ function draw(){
  drawUI();
 }
 function tick(){
+ const _n=performance.now(),dt=Math.min(.05,(_n-(tick.l||_n))/1000);tick.l=_n;
  S.t++;
  if(S.msg&&S.msg.shown<S.msg.n)S.msg.shown+=.8;
  pig.dh+=(pig.hp-pig.dh)*.15;if(Math.abs(pig.hp-pig.dh)<.3)pig.dh=pig.hp;
@@ -812,8 +815,8 @@ function tick(){
  if(S.mode==='map'&&!S.msg&&!S.menu){
   if(!Pl.mv){
    const d=held.up?'up':held.down?'down':held.left?'left':held.right?'right':null;
-   if(d){Pl.dir=d;const nx=Pl.x+D[d][0],ny=Pl.y+D[d][1];if(walk(nx,ny)){Pl.mv=true;Pl.tx=nx;Pl.ty=ny;Pl.prog=0}}
-  }else{Pl.prog+=2;if(Pl.prog>=16){Pl.x=Pl.tx;Pl.y=Pl.ty;Pl.mv=false;Pl.prog=0;arrive()}}
+   if(d){Pl.dir=d;const nx=Pl.x+D[d][0],ny=Pl.y+D[d][1];if(walk(nx,ny)){Pl.mv=true;Pl.tx=nx;Pl.ty=ny;Pl.prog=Pl.carry||0;Pl.carry=0}else Pl.carry=0}else Pl.carry=0
+  }else{Pl.prog+=120*dt;if(Pl.prog>=16){Pl.carry=Math.min(6,Pl.prog-16);Pl.x=Pl.tx;Pl.y=Pl.ty;Pl.mv=false;Pl.prog=0;arrive()}}
  }
  MU.sync();draw();requestAnimationFrame(tick);
 }
