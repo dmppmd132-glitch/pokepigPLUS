@@ -799,10 +799,12 @@ function tile(c,x,y,sx,sy){
 function drawWeatherFx(){const night=WORLD.time>=19||WORLD.time<6;ctx.save();if(night){ctx.fillStyle='rgba(20,18,70,.28)';ctx.fillRect(0,0,160,144);ctx.fillStyle='rgba(230,235,255,.7)';for(let i=0;i<8;i++){const x=(i*29+S.t)%160,y=(i*17)%80;ctx.fillRect(x,y,1,1)}}else if(WORLD.time>=17&&WORLD.time<19){ctx.fillStyle='rgba(255,150,80,.16)';ctx.fillRect(0,0,160,144)}if(WORLD.weather==='小雨'){ctx.strokeStyle='rgba(100,190,255,.72)';ctx.lineWidth=1;for(let i=0;i<18;i++){const x=(i*17+S.t*2)%160,y=(i*11+S.t*3)%144;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-2,y+6);ctx.stroke()}}if(WORLD.weather==='微雪'){ctx.fillStyle='rgba(255,255,255,.9)';for(let i=0;i<20;i++){const x=(i*23+S.t)%160,y=(i*13+S.t/2)%144;ctx.fillRect(x,y,2,2)}}if(WORLD.weather==='雷雨'){ctx.strokeStyle='rgba(80,150,255,.75)';for(let i=0;i<16;i++){const x=(i*19+S.t*2)%160,y=(i*9+S.t*3)%144;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-3,y+8);ctx.stroke()}if((S.t>>4)%20===0){ctx.fillStyle='rgba(255,255,255,.35)';ctx.fillRect(0,0,160,144)}}if(WORLD.weather==='濃霧'){ctx.fillStyle='rgba(220,230,235,.34)';ctx.fillRect(0,0,160,144)}if(WORLD.weather==='沙塵暴'){ctx.fillStyle='rgba(210,170,90,.45)';ctx.fillRect(0,0,160,144);ctx.fillStyle='rgba(245,220,150,.7)';for(let i=0;i<16;i++)ctx.fillRect((i*17+S.t*2)%160,(i*11)%144,3,1)}if(WORLD.weather==='花粉風'){ctx.fillStyle='rgba(190,230,105,.8)';for(let i=0;i<22;i++){const x=(i*19+S.t*1.4)%160,y=(i*13+S.t*.7)%144;ctx.fillRect(x,y,2,2)}ctx.fillStyle='rgba(180,220,100,.12)';ctx.fillRect(0,0,160,144)}if(WORLD.weather==='潮汐月夜'){ctx.fillStyle='rgba(70,180,220,.16)';ctx.fillRect(0,0,160,144);ctx.strokeStyle='rgba(120,230,255,.7)';for(let i=0;i<5;i++){ctx.beginPath();ctx.arc(20+i*34,112-(S.t%12),12,Math.PI,0);ctx.stroke()}}if(WORLD.weather==='流星雨'){ctx.strokeStyle='rgba(255,240,170,.9)';for(let i=0;i<10;i++){const x=(i*31+S.t*2)%180-10,y=(i*17+S.t)%90;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-6,y+7);ctx.stroke()}}if(WORLD.weather==='熱浪'){ctx.fillStyle='rgba(255,130,50,.16)';ctx.fillRect(0,0,160,144);ctx.strokeStyle='rgba(255,210,100,.45)';for(let i=0;i<7;i++){const x=i*27+(S.t%10);ctx.beginPath();ctx.moveTo(x,120);ctx.quadraticCurveTo(x+6,110,x,100);ctx.stroke()}}ctx.restore()}
 function drawMap(){
  const pr=Math.round(Pl.prog),px=Pl.x*16+(Pl.mv?D[Pl.dir][0]*pr:0),py=Pl.y*16+(Pl.mv?D[Pl.dir][1]*pr:0);
- const cx=Math.max(0,Math.min(MW*16-160,px-72)),cy=Math.max(0,Math.min(MH*16-144,py-64));
- for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){const sx=x*16-cx,sy=y*16-cy;if(sx>-16&&sx<160&&sy>-16&&sy<144)tile(MAP[y][x],x,y,sx,sy)}
- NPCS.forEach(n=>{if(n.m===cur&&!(n.hide&&FL[n.id]))(n.sp||npcSprite)(n.x*16-cx,n.y*16-cy,n.c)});const f=Pl.mv?(pr>>3)&1:0;if(surf)ell(px-cx+8,py-cy+14,9,3,3);pigMap(px-cx,py-cy-(Pl.mv&&f?1:0),Pl.dir,f);drawWeatherFx();
- R(0,0,160,12,0);R(0,12,160,1,3);T(`Lv${pig.lv} HP ${pig.hp}/${pig.max}`,3,1,3,7);T(weatherLabel(),92,12,3,7);T(`${nb()?'★'+nb()+' ':''}圖鑑 ${dex.size}/${ENEMIES.length}`,92,0,3,8);T(`$${BAG.coins}`,3,12,2,7);
+ const cx=Math.max(0,Math.min(MW*16-160,px-72)),cy=Math.max(0,Math.min(MH*16-132,py-58));
+ ctx.save();ctx.translate(0,12);
+ for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){const sx=x*16-cx,sy=y*16-cy;if(sx>-16&&sx<160&&sy>-16&&sy<132)tile(MAP[y][x],x,y,sx,sy)}
+ NPCS.forEach(n=>{if(n.m===cur&&!(n.hide&&FL[n.id]))(n.sp||npcSprite)(n.x*16-cx,n.y*16-cy,n.c)});const f=Pl.mv?(pr>>3)&1:0;if(surf)ell(px-cx+8,py-cy+14,9,3,3);pigMap(px-cx,py-cy-(Pl.mv&&f?1:0),Pl.dir,f);drawWeatherFx();ctx.restore();
+ /* 單行狀態列：金錢、地圖名、時間天氣（等級與圖鑑已移除） */
+ R(0,0,160,12,0);R(0,12,160,1,3);T(`$${BAG.coins}`,3,1,2,7);T(mapName(cur),36,1,2,7);T(weatherLabel(),92,1,3,7);
 }
 function hpbar(x,y,w,r){T('HP',x,y-2,3,7);R(x+12,y,w,5,3);R(x+13,y+1,w-2,3,0);R(x+13,y+1,Math.round((w-2)*Math.max(0,r)),3,r>.25?2:3)}
 function drawBattle(){
@@ -1427,7 +1429,7 @@ center=async function(h){
   if(MAP_NAMES[id])return MAP_NAMES[id];
   let m;
   if(m=/^g(\d)$/.exec(id))return `第${+m[1]+1}道館`;
-  if(m=/^L(\d+)$/.exec(id))return `傳說巢穴 ${+m[1]+1}`;
+  if(m=/^L(\d+)(F2)?$/.exec(id))return `傳說巢穴 ${+m[1]+1}・${m[2]?'2F':'1F'}`;
   if(m=/^shop_(.+)$/.exec(id))return `${MAP_NAMES[m[1]]||m[1]}雜貨店`;
   if(m=/^hospital_(.+)$/.exec(id))return `${MAP_NAMES[m[1]]||m[1]}健康中心`;
   return id};
@@ -1648,17 +1650,170 @@ center=async function(h){
  drawMap=function(){
   _drawMapBeforeBadges();
   const pr=Math.round(Pl.prog),px=Pl.x*16+(Pl.mv?D[Pl.dir][0]*pr:0),py=Pl.y*16+(Pl.mv?D[Pl.dir][1]*pr:0);
-  const cx=Math.max(0,Math.min(MW*16-160,px-72)),cy=Math.max(0,Math.min(MH*16-144,py-64));
+  const cx=Math.max(0,Math.min(MW*16-160,px-72)),cy=Math.max(0,Math.min(MH*16-132,py-58));
   for(const n of NPCS){
    if(n.m!==cur||(n.hide&&FL[n.id]))continue;
    const b=badgeOf(n);if(!b)continue;
-   const bx=n.x*16-cx+3,by=n.y*16-cy-7;
+   const bx=n.x*16-cx+3,by=n.y*16-cy-7+12;
    if(by<13||bx<0||bx>150)continue;
    R(bx,by,10,9,3);R(bx+1,by+1,8,7,0);T(b,bx+1,by,3,8);}
-  /* HUD 第二行文字原本直接壓在地圖上，看不清楚 → 補底色後重畫 */
-  R(0,12,160,10,0);R(0,12,160,1,3);
-  T(`$${BAG.coins}`,3,13,2,7);T(mapName(cur),36,13,2,7);T(weatherLabel(),92,13,3,7);
+  /* 狀態列已併成單行，在 drawMap 內畫好，這裡不用再補 */
  };
+})();
+
+
+/* ===== 傳說巢穴 1～19：每個巢穴改成兩層迷宮（1F、2F）。
+   2F 盡頭的守護者房間裡是守護者；擊敗（或收服）後會問要不要離開，
+   同時房間角落會出現一個永久的出口光門。 ===== */
+(function lairMazes(){
+ const mkRng=seed=>{let z=(seed*9301+49297)%2147483647||1;return()=>{z=(z*16807)%2147483647;return z/2147483647}};
+ function carve(w,h,rand){
+  const g=Array.from({length:h},()=>Array(w).fill('#'));
+  const st=[[1,1]];g[1][1]='.';
+  while(st.length){
+   const [x,y]=st[st.length-1];
+   const d=[[2,0],[-2,0],[0,2],[0,-2]].filter(([a,b])=>x+a>0&&x+a<w-1&&y+b>0&&y+b<h-1&&g[y+b][x+a]==='#');
+   if(!d.length){st.pop();continue}
+   const [a,b]=d[Math.floor(rand()*d.length)];
+   g[y+b/2][x+a/2]='.';g[y+b][x+a]='.';st.push([x+a,y+b]);
+  }
+  /* 少量打通牆壁，讓迷宮有幾個迴圈，不會只是一棵樹 */
+  const extra=Math.floor(w*h/50);
+  for(let n=0;n<extra;n++){
+   const x=1+2*Math.floor(rand()*((w-3)/2)),y=1+2*Math.floor(rand()*((h-3)/2));
+   if(rand()<.5){if(x+2<w-1)g[y][x+1]='.'}else{if(y+2<h-1)g[y+1][x]='.'}
+  }
+  return g;
+ }
+ const NB=[[1,0],[-1,0],[0,1],[0,-1]];
+ const bfs=(g,sx,sy)=>{
+  const dist=new Map([[sx+','+sy,0]]),q=[[sx,sy]];
+  for(let k=0;k<q.length;k++){
+   const [x,y]=q[k],d=dist.get(x+','+y);
+   for(const [a,b] of NB){const nx=x+a,ny=y+b;
+    if(g[ny]&&g[ny][nx]==='.'&&!dist.has(nx+','+ny)){dist.set(nx+','+ny,d+1);q.push([nx,ny])}}
+  }
+  return dist;
+ };
+ const openNb=(g,x,y)=>NB.filter(([a,b])=>g[y+b]&&g[y+b][x+a]==='.').length;
+ const decoOf=t=>t==='水'?'~':t==='火'?'^':['電','光'].includes(t)?'*':['冰','暗','毒'].includes(t)?'o':'+';
+ const rowsOf=g=>g.map(r=>r.join(''));
+ const LAIR={};   // i -> {f1,f2,back,exit:[x,y],boss:[x,y],id}
+
+ for(let i=0;i<19;i++){
+  const f1='L'+i,f2='L'+i+'F2';
+  const g0=NPCS.find(n=>n.m===f1&&String(n.id||'').startsWith('leg'));
+  const oldBack=WARP[`${f1},7,12`];
+  const doorKeys=Object.keys(WARP).filter(k=>WARP[k][0]===f1&&!/^L\d/.test(k.split(',')[0]));
+  if(!g0||!oldBack||!doorKeys.length)continue;
+  const id=+String(g0.id).slice(3),e=ENEMIES[id],type=e.t||'普';
+  const rand=mkRng(i*131+17),deco=decoOf(type);
+
+  /* ---------- 1F ---------- */
+  const w=19+2*(i%3),h1=13+2*(i%2);
+  const a=carve(w,h1,rand);
+  const s1=[1,h1-2];
+  const d1=bfs(a,s1[0],s1[1]);
+  let up=null,best=-1;
+  for(const [k,d] of d1){const [x,y]=k.split(',').map(Number);
+   if((x!==s1[0]||y!==s1[1])&&openNb(a,x,y)===1&&d>best){best=d;up=[x,y]}}
+  /* 上樓梯所在的死路，它唯一的鄰格就是從 2F 下來時的落點 */
+  const upIn=NB.map(([p,q])=>[up[0]+p,up[1]+q]).find(([x,y])=>a[y][x]==='.');
+
+  /* ---------- 2F：下方迷宮 + 上方守護者房間 ---------- */
+  const hm=11+2*(i%3),oy=4,H2=hm+4;
+  const m=carve(w,hm,rand);
+  const b=Array.from({length:H2},()=>Array(w).fill('#'));
+  for(let y=0;y<hm;y++)for(let x=0;x<w;x++)b[y+oy][x]=m[y][x];
+  const s2=[1,hm+2];                     // 2F 出生點（地圖座標）
+  const d2=bfs(b,s2[0],s2[1]);
+  let cx=1,bd=-1;
+  for(let x=1;x<=w-2;x+=2){const d=d2.get(x+','+(oy+1));if(d!==undefined&&d>bd){bd=d;cx=x}}
+  const x0=Math.max(1,Math.min(w-6,cx-2));
+  for(let y=1;y<=3;y++)for(let x=x0;x<=x0+4;x++)b[y][x]='.';
+  b[oy][cx]='.';                         // 房間入口
+  const boss=[cx,1],exit=[(cx-x0>=x0+4-cx)?x0:x0+4,1];
+
+  /* 主題裝飾：只放在一般地板上，不蓋住特殊格 */
+  const keep=new Set([s1.join(),up.join(),upIn.join(),s2.join(),boss.join(),exit.join(),[cx,2].join(),[cx,3].join()]);
+  const sprinkle=(g,seed)=>{for(let y=1;y<g.length-1;y++)for(let x=1;x<g[0].length-1;x++)
+   if(g[y][x]==='.'&&!keep.has(x+','+y)&&((x*7+y*11+seed)%19===0))g[y][x]=deco};
+  sprinkle(a,i);sprinkle(b,i+5);
+
+  /* 門 / 樓梯（用 D 格，顯示成門）*/
+  a[h1-1][1]='D';                        // 1F 出口（回到外面）
+  a[up[1]][up[0]]='D';                   // 1F → 2F
+  b[H2-1][1]='D';                        // 2F → 1F
+
+  MAPS[f1]=rowsOf(a);MAPS[f2]=rowsOf(b);
+  PAL[f2]=PAL[f1]=(PAL[f1]||PAL[f2]||PAL.town).slice();
+
+  /* 傳送點：先清掉舊的，再依新地圖重建 */
+  delete WARP[`${f1},7,12`];
+  doorKeys.forEach(k=>{WARP[k]=[f1,s1[0],s1[1]]});
+  WARP[`${f1},1,${h1-1}`]=oldBack.slice();
+  WARP[`${f1},${up[0]},${up[1]}`]=[f2,s2[0],s2[1]];
+  WARP[`${f2},1,${H2-1}`]=[f1,upIn[0],upIn[1]];
+
+  /* 守護者搬到 2F 房間最深處 */
+  g0.m=f2;g0.x=boss[0];g0.y=boss[1];
+  g0.fn=async()=>{
+   S.mode='event';
+   await say(`${e.n}靜靜地注視著你……`);await say(`${e.n}發出震天的怒吼！`);
+   const n0=party.length+pcBox.length;
+   const won=await battle(0,0,id);
+   const done=won||FL['leg'+id]||(party.length+pcBox.length)>n0;
+   if(!done){S.mode='map';return}
+   FL['lair'+i]=1;if(!isLegend(id))FL['leg'+id]=1;
+   openExit(i);
+   S.mode='event';
+   await say(`${e.n}被擊敗了！房間角落出現了一道出口光門。`);
+   S.prompt='要離開巢穴嗎？';
+   const c=await choose(['離開巢穴','留在這裡'],1,'right',true);
+   if(c===0){
+    const t=LAIR[i].back;surf=false;
+    setMap(t[0]);Pl.x=t[1];Pl.y=t[2];Pl.dir='down';Pl.mv=false;Pl.prog=0;
+   }
+   S.mode='map';
+  };
+  LAIR[i]={f1,f2,back:oldBack.slice(),exit,boss,id};
+ }
+
+ function openExit(i){
+  const L=LAIR[i];if(!L)return;
+  const r=MAPS[L.f2][L.exit[1]];
+  if(r[L.exit[0]]!=='D')MAPS[L.f2][L.exit[1]]=r.slice(0,L.exit[0])+'D'+r.slice(L.exit[0]+1);
+  WARP[`${L.f2},${L.exit[0]},${L.exit[1]}`]=L.back.slice();
+ }
+ /* 讀檔或再次進入 2F 時，已擊敗過守護者就保留出口 */
+ const _setMapLair=setMap;
+ setMap=function(n){
+  _setMapLair(n);
+  const m=/^L(\d+)F2$/.exec(n);
+  if(m&&FL['lair'+m[1]])openExit(+m[1]);
+ };
+
+ /* 樓梯與出口門上加上小字：上／下／出 */
+ const _tileLair=tile;
+ tile=function(c,x,y,sx,sy){
+  const inLair=/^L\d+(F2)?$/.test(cur);
+  if(inLair&&c==='#'){          // 巢穴的牆：石磚
+   R(sx,sy,16,16,3);R(sx+1,sy+1,14,6,2);R(sx+1,sy+9,6,6,2);R(sx+9,sy+9,6,6,2);return;
+  }
+  _tileLair(c,x,y,sx,sy);
+  if(c==='D'&&inLair){
+   const w=WARP[`${cur},${x},${y}`];
+   if(!w)return;
+   if(!/^L\d/.test(w[0])){       // 出口：小太陽
+    R(sx+7,sy+9,2,2,3);R(sx+7,sy+7,2,1,3);R(sx+7,sy+12,2,1,3);R(sx+5,sy+9,1,2,3);R(sx+10,sy+9,1,2,3);
+   }else if(/F2$/.test(w[0])){    // 往 2F：上箭頭
+    R(sx+7,sy+7,2,1,3);R(sx+6,sy+8,4,1,3);R(sx+5,sy+9,6,1,3);R(sx+7,sy+10,2,4,3);
+   }else{                         // 回 1F：下箭頭
+    R(sx+7,sy+7,2,4,3);R(sx+5,sy+11,6,1,3);R(sx+6,sy+12,4,1,3);R(sx+7,sy+13,2,1,3);
+   }
+  }
+ };
+ window.__LAIR=LAIR;
 })();
 
 MU.bind(document.getElementById('mu'));
