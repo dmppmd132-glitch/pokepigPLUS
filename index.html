@@ -709,7 +709,7 @@ async function battle(T,W,L){
   S.prompt='小豬要\n怎麼做？';
   const c=await choose(['戰鬥','飼料','隊伍','逃跑'],2,'full');
   if(c===0){
-   const m=await choose(pig.mv.map((i,k)=>`${moveLabel(i)} PP${pig.pp?.[k]??10}`),2,'full',true);
+   B.moveMenu=1;const m=await choose(pig.mv.map((i,k)=>`${moveLabel(i)} PP${pig.pp?.[k]??10}`),2,'full',true);B.moveMenu=0;
    if(m<0)continue;
    if(!(await useMove(pig.mv[m])))continue;
    if(E.hp<=0){B.won=1;await say(`${E.n}倒下了！`);await gain(E);over=true;break}
@@ -959,6 +959,7 @@ for(const m of ['school','a2','a3','a4','a5','a6']) addShopLandmark(m,5,5);
 // Make shop and service buildings visually distinct on the map.
 const _tileBeforeLandmarks=tile;
 tile=function(c,x,y,sx,sy){
+ if(c==='S'){R(sx,sy,16,16,3);R(sx+1,sy+1,14,14,2);drawHouseGlyph('shop',sx,sy);return}
  if(c==='T'){
   R(sx,sy,16,16,3);R(sx+1,sy+1,14,14,2);
   T('SHOP',sx+1,sy+4,0,6);return;
@@ -982,11 +983,11 @@ rockPuzzle = async function(key){
  if(!q || FL['rock:'+key])return;
  S.mode='event';
  const games=['貪食蛇','接球／躲避下落物','彈跳穿越障礙','記憶翻牌'];
- const choice=await choose(games,2,'full',true);
- if(choice<0){S.mode='map';return}
+ const choice=Math.floor(Math.random()*games.length);
+ await say(`機關隨機抽中了「${games[choice]}」！準備開始挑戰。`);
  let won=false;
  if(choice===0){
-  let snake=[[2,2],[1,2]],dir=1,food=[4,2],steps=0;
+  let snake=[[2,2],[1,2]],dir=1,food=[rnd(0,5),rnd(0,5)],steps=0;
   await say('貪食蛇：使用方向選擇移動方向，吃到食物加長；撞牆或撞到自己就結束。');
   while(steps<18){
    const c=await choose(['上','下','左','右','結束'],2,'full',true);
@@ -1019,7 +1020,7 @@ rockPuzzle = async function(key){
   }
   won=score>=5;
  }else{
-  const deck=[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7].sort(()=>Math.random()-.5);
+  const deck=[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7];for(let z=deck.length-1;z>0;z--){const j=Math.floor(Math.random()*(z+1));[deck[z],deck[j]]=[deck[j],deck[z]]}
   const open=[],matched=new Set();let turns=0;
   await say('記憶翻牌：輸入兩張卡片編號（1～16），找出所有相同圖案。');
   while(matched.size<16&&turns<24){
@@ -1058,10 +1059,10 @@ for(let i=NPCS.length-1;i>=0;i--)if(NPCS[i].shop||String(NPCS[i].id||'').startsW
 const SETTLEMENTS=['town','route','school','a2','a3','a4','a5','a6'];
 const SHOP_LAYOUT={
  town:{mark:[16,5],door:[15,7]},
- route:{mark:[8,5],door:[7,6]},
- school:{mark:[8,5],door:[7,6]},
- a2:{mark:[8,5],door:[7,6]},a3:{mark:[8,5],door:[7,6]},
- a4:{mark:[8,5],door:[7,6]},a5:{mark:[8,5],door:[7,6]},a6:{mark:[8,5],door:[7,6]}
+ route:{mark:[9,5],door:[8,6]},
+ school:{mark:[9,5],door:[8,6]},
+ a2:{mark:[9,5],door:[8,6]},a3:{mark:[9,5],door:[8,6]},
+ a4:{mark:[9,5],door:[8,6]},a5:{mark:[9,5],door:[8,6]},a6:{mark:[9,5],door:[8,6]}
 };
 const makeRoom=(w=9,h=9)=>Array.from({length:h},(_,y)=>Array.from({length:w},(_,x)=>(y===0||y===h-1||x===0||x===w-1)?'#':'.').join(''));
 function placeTile(mapName,x,y,ch){if(!MAPS[mapName]||!MAPS[mapName][y]||x<0||x>=MAPS[mapName][y].length)return;put(mapName,ch,[[x,y]])}
@@ -1098,9 +1099,10 @@ for(const [m,rows] of Object.entries(MAPS)){
 }
 
 /* A dedicated school building and an explorable classroom. */
-const schoolMark=[11,2],schoolDoor=[10,4];
-placeTile('school',schoolMark[0],schoolMark[1],'H');
-placeTile('school',schoolDoor[0],schoolDoor[1],'D');
+const schoolMark=[12,2],schoolDoor=[11,3];
+[[10,2,'H'],[11,2,'H'],[12,2,'H'],[10,3,'H'],[11,3,'D'],[12,3,'H']].forEach(([x,y,c])=>placeTile('school',x,y,c));
+WARP['school,11,3']=['schoolInterior',6,9];
+WARP['schoolInterior,6,10']=['school',11,4];
 MAPS.schoolInterior=[
 '#############',
 '#...........#',
@@ -1115,8 +1117,8 @@ MAPS.schoolInterior=[
 '######.######'
 ];
 PAL.schoolInterior=['#fff8e8','#e8bd79','#9b6337','#54351f'];
-WARP['school,10,4']=['schoolInterior',6,9];
-WARP['schoolInterior,6,10']=['school',10,5];
+WARP['school,11,3']=['schoolInterior',6,9];
+WARP['schoolInterior,6,10']=['school',11,4];
 NPCS.push(mk('schoolInterior',6,2,3,'school_teacher',['講師：歡迎來到星學堂！今天要學習屬性相剋與迷宮探索。','記得依照怪獸屬性選擇合適的隊伍！']));
 NPCS.push(mk('schoolInterior',9,7,1,'school_student',['學員：我正在上課，老師講得好清楚！']));
 const _tileBeforeSchool=tile;
@@ -1230,6 +1232,133 @@ document.querySelectorAll('#pad button').forEach(b=>{const k=b.dataset.k;
  b.addEventListener('pointerdown',e=>{e.preventDefault();held[k]=true;press(k)});
  ['pointerup','pointerleave','pointercancel'].forEach(t=>b.addEventListener(t,()=>{held[k]=false}));
 });
+
+/* ===== Final polish: battle move panel, random minigames, clean building icons, dex list ===== */
+const _drawUIForMovePanel=drawUI;
+drawUI=function(){
+ if(S.mode==='battle'&&S.menu&&B&&B.moveMenu){
+  const m=S.menu;box(2,96,156,46);
+  T('選擇招式',8,99,2,8);
+  m.o.forEach((o,i)=>{
+   const col=i%2,row=Math.floor(i/2),x=8+col*76,y=112+row*14;
+   const label=String(o).replace(/\s*PP\s*/,'　PP');
+   T(fitText((m.i===i?'▶':'')+label,72,7),x,y,3,7);
+  });
+  return;
+ }
+ _drawUIForMovePanel();
+};
+
+/* The dex opens as a compact index. A selects a creature to open its original detail card. */
+const _drawViewBeforeDexList=drawView;
+drawView=function(){
+ if(S.vk!=='dex'||S.dexDetail){_drawViewBeforeDexList();return}
+ R(0,0,160,144,0);box(2,2,156,140);
+ const total=ENEMIES.length,per=8,page=Math.floor(S.vi/per),start=page*per;
+ T(`怪獸圖鑑 ${start+1}-${Math.min(total,start+per)}/${total}`,9,7,2,9);
+ T(`已捕獲 ${dex.size}/${total}`,9,17,2,8);
+ for(let j=0;j<per&&start+j<total;j++){
+  const idx=start+j,e=ENEMIES[idx],seen=dex.has(e.n)||!!FL['s'+idx];
+  const y=30+j*12;
+  if(idx===S.vi)R(6,y-1,148,11,1);
+  T(`${String(idx+1).padStart(3,'0')}  ${seen?e.n:'？？？？'}`,10,y,idx===S.vi?0:3,7);
+  T(dex.has(e.n)?'✓':seen?'○':'－',137,y,2,7);
+ }
+ T('↑↓選擇　A查看　B關閉',9,135,2,7);
+};
+const _pressBeforeDexList=press;
+press=function(k){
+ if(S.mode==='view'&&S.vk==='dex'){
+  const total=ENEMIES.length,per=8;
+  if(S.dexDetail){
+   if(k==='a'){S.dexDetail=false;return}
+   if(k==='b'){S.dexDetail=false;S.mode='event';S.vr();return}
+   if(k==='left')S.vi=(S.vi+total-1)%total;
+   if(k==='right')S.vi=(S.vi+1)%total;
+   return;
+  }
+  if(k==='up')S.vi=(S.vi+total-1)%total;
+  if(k==='down')S.vi=(S.vi+1)%total;
+  if(k==='a'){S.dexDetail=true;return}
+  if(k==='b'){S.mode='event';S.vr();return}
+  if(k==='left')S.vi=Math.max(0,S.vi-per);
+  if(k==='right')S.vi=Math.min(total-1,S.vi+per);
+  return;
+ }
+ _pressBeforeDexList(k);
+};
+
+/* Replace text labels on map buildings with compact pictograms; no floating letters or words. */
+function drawHouseGlyph(kind,sx,sy,type){
+ R(sx+5,sy+1,10,9,0);
+ if(kind==='shop'){
+  R(sx+6,sy+2,8,2,3);R(sx+6,sy+4,8,2,2);R(sx+7,sy+6,6,3,1);R(sx+9,sy+7,2,2,3);
+ }else if(kind==='hospital'){
+  R(sx+9,sy+2,2,7,3);R(sx+6,sy+4,8,2,3);
+ }else if(kind==='school'){
+  R(sx+6,sy+3,8,5,3);R(sx+7,sy+4,6,3,1);R(sx+8,sy+9,4,1,3);
+ }else{
+  /* Type-specific badge, drawn entirely as geometry rather than text. */
+  const colors={水:2,火:3,電:3,草:2,土:3,冰:2,光:3,暗:3,毒:2,普:3};
+  const c=colors[type]||3;
+  ell(sx+10,sy+5,4,4,c);
+  if(type==='水'){R(sx+9,sy+2,2,6,0);R(sx+7,sy+5,6,2,0)}
+  else if(type==='火'){R(sx+9,sy+1,2,7,0);R(sx+7,sy+4,6,3,0)}
+  else if(type==='電'){R(sx+10,sy+1,2,4,0);R(sx+8,sy+4,4,2,0);R(sx+9,sy+6,2,3,0)}
+  else if(type==='草'){R(sx+9,sy+2,2,6,0);R(sx+7,sy+4,3,2,0);R(sx+10,sy+6,3,2,0)}
+  else if(type==='土'){R(sx+7,sy+3,6,5,0);R(sx+8,sy+2,4,1,0)}
+  else if(type==='冰'){R(sx+9,sy+1,2,8,0);R(sx+6,sy+4,8,2,0)}
+  else if(type==='光'){R(sx+9,sy+1,2,8,0);R(sx+6,sy+4,8,2,0);R(sx+7,sy+2,2,2,0);R(sx+12,sy+7,2,2,0)}
+  else if(type==='暗'){ell(sx+10,sy+5,3,4,0);R(sx+11,sy+1,2,3,c)}
+  else if(type==='毒'){ell(sx+10,sy+5,2,3,0);R(sx+7,sy+2,2,2,0);R(sx+12,sy+2,2,2,0)}
+  else {R(sx+7,sy+4,6,2,0);R(sx+9,sy+2,2,6,0)}
+ }
+}
+const _tileBeforeCleanGlyphs=_tileBeforeSchool;
+tile=function(c,x,y,sx,sy){
+ if(c==='T'){
+  R(sx,sy,16,16,3);R(sx+1,sy+1,14,14,2);R(sx+2,sy+2,12,5,3);R(sx+3,sy+3,10,3,2);R(sx+6,sy+8,4,7,3);drawHouseGlyph('shop',sx,sy);return;
+ }
+ if(c==='C'||c==='h'){
+  R(sx,sy,16,16,1);R(sx+2,sy+2,12,12,0);drawHouseGlyph('hospital',sx,sy);return;
+ }
+ if(c==='G'){
+  const gym=GYMS.find(g=>g.m===cur),type=gym?ENEMIES[gym.s]?.t:'普';
+  R(sx,sy,16,16,3);R(sx+1,sy+1,14,14,1);drawHouseGlyph('gym',sx,sy,type);return;
+ }
+ _tileBeforeCleanGlyphs(c,x,y,sx,sy);
+ if(cur==='school'&&x===schoolMark[0]&&y===schoolMark[1])drawHouseGlyph('school',sx,sy);
+ const marker=HOUSE_MARKERS[`${cur}:${x}:${y}`];
+ if(marker==='SHOP')drawHouseGlyph('shop',sx,sy);
+ else if(marker==='✚')drawHouseGlyph('hospital',sx,sy);
+ else if(marker)drawHouseGlyph('gym',sx,sy,marker);
+};
+
+/* Every settlement hospital is an actual building: approach its doorway to enter, then speak to the nurse. */
+const _hospitalMaps=['town','route','school','a2','a3','a4','a5','a6'];
+for(const mapName of _hospitalMaps){
+ const rows=MAPS[mapName];if(!rows)continue;
+ let found=null;
+ for(let yy=1;yy<rows.length-1&&!found;yy++)for(let xx=1;xx<rows[yy].length-1;xx++)if(rows[yy][xx]==='C'||rows[yy][xx]==='h'){found=[xx,yy];break}
+ if(!found)continue;
+ const [hx,hy]=found,room='hospital_'+mapName;
+ MAPS[room]=['#########','#.......#','#.......#','#.......#','#.......#','#.......#','#.......#','#.......#','####.####'];
+ PAL[room]=['#f5fbff','#b9dbe8','#5c9ab2','#24485c'];
+ /* Three-tile facade, sign at the upper-right, and centered front door. */
+ const bx=Math.max(1,Math.min(rows[hy].length-4,hx-1)),by=Math.max(1,Math.min(rows.length-4,hy));
+ put(mapName,'H',[[bx,by],[bx+1,by],[bx,by+1],[bx+2,by+1]]);
+ put(mapName,'C',[[bx+2,by]]);put(mapName,'D',[[bx+1,by+1]]);
+ HOUSE_MARKERS[`${mapName}:${bx+2}:${by}`]='✚';
+ WARP[`${mapName},${bx+1},${by+1}`]=[room,4,7];
+ WARP[`${room},4,8`]=[mapName,bx+1,by+2];
+ NPCS.push(Object.assign(mk(room,4,3,2,'nurse_'+mapName,['護理師：歡迎來到健康中心！需要恢復隊伍體力嗎？']),{fn:async()=>{party.forEach(m=>m.hp=m.max);pig.dh=pig.hp;await say('全隊已恢復體力！')}}));
+}
+/* The old instant-heal tile is no longer a service shortcut. */
+const _centerBeforeBuildingEntry=center;
+center=async function(h){
+ S.mode='event';await say('請從醫院的入口進入，與護理師互動即可恢復體力。');S.mode='map';
+};
+
 MU.bind(document.getElementById('mu'));
 tick();
 </script></body></html>
