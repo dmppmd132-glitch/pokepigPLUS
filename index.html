@@ -1038,6 +1038,188 @@ rockPuzzle = async function(key){
  S.mode='map';
 };
 
+
+/* ===== 房屋、商店、星學堂與屬性傳說迷宮 ===== */
+/* XYAB 十字排列：X 上、Y 右、A 左、B 下 */
+document.querySelector('.ab')?.classList.add('cross-pad');
+const padStyle=document.createElement('style');
+padStyle.textContent=`
+.ab.cross-pad{display:grid;grid-template:repeat(3,48px)/repeat(3,48px);gap:3px;max-width:none;transform:none;flex-wrap:initial;justify-content:center}
+.ab.cross-pad button{width:48px;height:48px;margin:0}
+.ab.cross-pad button[data-k="x"]{grid-area:1/2}
+.ab.cross-pad button[data-k="y"]{grid-area:2/3}
+.ab.cross-pad button[data-k="a"]{grid-area:2/1}
+.ab.cross-pad button[data-k="b"]{grid-area:3/2}
+`;
+document.head.appendChild(padStyle);
+
+/* Remove every outdoor merchant. Merchants exist only inside a shop building. */
+for(let i=NPCS.length-1;i>=0;i--)if(NPCS[i].shop||String(NPCS[i].id||'').startsWith('shop_'))NPCS.splice(i,1);
+const SETTLEMENTS=['town','route','school','a2','a3','a4','a5','a6'];
+const SHOP_LAYOUT={
+ town:{mark:[16,5],door:[15,7]},
+ route:{mark:[8,5],door:[7,6]},
+ school:{mark:[8,5],door:[7,6]},
+ a2:{mark:[8,5],door:[7,6]},a3:{mark:[8,5],door:[7,6]},
+ a4:{mark:[8,5],door:[7,6]},a5:{mark:[8,5],door:[7,6]},a6:{mark:[8,5],door:[7,6]}
+};
+const makeRoom=(w=9,h=9)=>Array.from({length:h},(_,y)=>Array.from({length:w},(_,x)=>(y===0||y===h-1||x===0||x===w-1)?'#':'.').join(''));
+function placeTile(mapName,x,y,ch){if(!MAPS[mapName]||!MAPS[mapName][y]||x<0||x>=MAPS[mapName][y].length)return;put(mapName,ch,[[x,y]])}
+for(const m of SETTLEMENTS){
+ const spec=SHOP_LAYOUT[m],roomId='shop_'+m;
+ MAPS[roomId]=makeRoom();PAL[roomId]=['#fff5e9','#edc99c','#a86d42','#55351f'];
+ if(m==='town'){
+  [[14,5,'H'],[15,5,'H'],[16,5,'T'],[14,6,'H'],[16,6,'H']].forEach(([x,y,c])=>placeTile(m,x,y,c));
+ }else{
+  const [mx,my]=spec.mark;
+  placeTile(m,mx-1,my,'H');placeTile(m,mx,my,'H');placeTile(m,mx+1,my,'T');
+  placeTile(m,mx-1,my+1,'H');placeTile(m,mx+1,my+1,'H');
+ }
+ placeTile(m,spec.door[0],spec.door[1],'D');
+ MAPS[roomId][8]=MAPS[roomId][8].slice(0,4)+'.'+MAPS[roomId][8].slice(5);
+ WARP[`${m},${spec.door[0]},${spec.door[1]}`]=[roomId,4,7];
+ WARP[`${roomId},4,8`]=[m,spec.door[0],spec.door[1]+1];
+ NPCS.push(Object.assign(mk(roomId,4,3,2,'merchant_'+m,['雜貨店老闆：歡迎光臨！需要購買什麼呢？'],null,null,null,null,null,'store'),{shop:true}));
+}
+/* The old town shop warp is redirected to the dedicated shop room. */
+WARP['town,15,7']=['shop_town',4,7];
+/* House marker is drawn at the upper-right roof tile, not over the doorway. */
+const HOUSE_MARKERS={};
+for(const [m,v] of Object.entries(SHOP_LAYOUT))HOUSE_MARKERS[`${m}:${v.mark[0]}:${v.mark[1]}`]='SHOP';
+for(const [m,rows] of Object.entries(MAPS)){
+ for(let y=1;y<rows.length;y++)for(let x=0;x<rows[y].length;x++){
+  const c=rows[y][x];
+  if(c==='C'||c==='h')HOUSE_MARKERS[`${m}:${x+1}:${y-1}`]='✚';
+  if(c==='G'){
+   const gym=GYMS.find(g=>g.m===m);
+   HOUSE_MARKERS[`${m}:${x+1}:${y-1}`]=gym?(ENEMIES[gym.s]?.t||'館'):'館';
+  }
+ }
+}
+
+/* A dedicated school building and an explorable classroom. */
+const schoolMark=[11,2],schoolDoor=[10,4];
+placeTile('school',schoolMark[0],schoolMark[1],'H');
+placeTile('school',schoolDoor[0],schoolDoor[1],'D');
+MAPS.schoolInterior=[
+'#############',
+'#...........#',
+'#...........#',
+'#...........#',
+'#...........#',
+'#...........#',
+'#...........#',
+'#...........#',
+'#...........#',
+'#..... .....#'.replace(' ',''),
+'######.######'
+];
+PAL.schoolInterior=['#fff8e8','#e8bd79','#9b6337','#54351f'];
+WARP['school,10,4']=['schoolInterior',6,9];
+WARP['schoolInterior,6,10']=['school',10,5];
+NPCS.push(mk('schoolInterior',6,2,3,'school_teacher',['講師：歡迎來到星學堂！今天要學習屬性相剋與迷宮探索。','記得依照怪獸屬性選擇合適的隊伍！']));
+NPCS.push(mk('schoolInterior',9,7,1,'school_student',['學員：我正在上課，老師講得好清楚！']));
+const _tileBeforeSchool=tile;
+tile=function(c,x,y,sx,sy){
+ if(cur==='schoolInterior'&&c==='q'){R(sx,sy,16,16,3);R(sx+1,sy+1,14,8,2);R(sx+3,sy+3,10,1,0);T('星學堂',sx+3,sy+4,0,7);return}
+ if(cur==='schoolInterior'&&c==='p'){R(sx,sy,16,16,1);R(sx+2,sy+2,12,7,3);R(sx+3,sy+3,10,5,2);return}
+ if(cur==='schoolInterior'&&c==='k'){R(sx,sy,16,16,1);R(sx+2,sy+3,12,8,3);R(sx+3,sy+4,10,6,2);R(sx+6,sy+11,4,3,3);return}
+ if(c==='D'){R(sx,sy,16,16,1);R(sx+3,sy+2,10,14,3);R(sx+4,sy+3,8,13,2);R(sx+7,sy+8,2,2,0);return}
+ if(c==='~'){R(sx,sy,16,16,1);R(sx+2,sy+4,7,2,2);R(sx+7,sy+10,7,2,2);return}
+ if(c==='^'){R(sx,sy,16,16,1);R(sx+2,sy+10,12,4,3);R(sx+5,sy+5,3,6,2);R(sx+10,sy+3,3,8,3);return}
+ if(c==='*'){R(sx,sy,16,16,1);T('✦',sx+4,sy+2,3,10);return}
+ if(c==='+'){R(sx,sy,16,16,1);R(sx+7,sy+3,2,10,3);R(sx+3,sy+7,10,2,3);return}
+ if(c==='o'){R(sx,sy,16,16,1);ell(sx+8,sy+8,5,5,3);ell(sx+8,sy+8,2,2,0);return}
+ _tileBeforeSchool(c,x,y,sx,sy);
+};
+const _drawMapBeforeClassroom=drawMap;
+drawMap=function(){
+ _drawMapBeforeClassroom();
+ if(cur==='schoolInterior'){
+  /* Blackboard, podium, and individual desks are classroom furniture. */
+  R(39,17,82,13,3);R(42,19,76,8,0);T('星學堂｜屬性課程',48,20,2,7);
+  R(72,48,16,10,3);R(74,49,12,7,2);
+  [[48,83],[96,83]].forEach(([x,y])=>{R(x,y,18,10,3);R(x+2,y+2,14,6,2);R(x+3,y+10,3,5,3);R(x+12,y+10,3,5,3)});
+ }
+};
+
+/* Type-themed legendary labyrinths: every rare lair is a maze with a clear route to its guardian. */
+const TYPE_PALETTES={
+ '水':['#dffaff','#80d9e8','#258ba9','#103e59'],
+ '火':['#fff0dc','#ff9b55','#d84b27','#5a1710'],
+ '電':['#fffbd8','#ffe56c','#d4a400','#4c3900'],
+ '草':['#f1ffe7','#a9df83','#4c9c42','#1d4b25'],
+ '土':['#f3e5c8','#c9a36a','#88613b','#3d2a1a'],
+ '冰':['#f1fcff','#c6edf5','#78b7cf','#294a60'],
+ '光':['#fffbe8','#f6df8c','#c69c36','#5b4619'],
+ '暗':['#eee8ff','#a99bd5','#66508f','#2b204b'],
+ '毒':['#f8e8ff','#c69bd8','#87509c','#3b214c'],
+ '普':['#fff0f4','#edb8ca','#b66b8b','#542c43']
+};
+function themedLair(seed,type){
+ const w=15,h=13,rows=Array.from({length:h},(_,y)=>Array.from({length:w},(_,x)=>(x===0||y===0||x===w-1||y===h-1)?'#':'.'));
+ /* Carve a winding central route and deterministic side branches. */
+ let x=7,y=11;rows[y][x]='.';
+ let z=seed*9301+49297;const rand=()=>{z=(z*16807)%2147483647;return z/2147483647};
+ while(y>3){y--;rows[y][x]='.';if(rand()>.58){const dx=rand()>.5?1:-1;for(let n=0;n<2;n++){const nx=Math.max(1,Math.min(w-2,x+dx));x=nx;rows[y][x]='.'}}}
+ for(let i=0;i<18;i++){const bx=1+Math.floor(rand()*(w-2)),by=2+Math.floor(rand()*(h-4));for(let j=0;j<3;j++){const nx=Math.max(1,Math.min(w-2,bx+j));rows[by][nx]='.'}}
+ for(let yy=3;yy<=11;yy++)rows[yy][7]='.';
+ rows[11][7]='.';rows[12][7]='.';
+ const deco=type==='水'?'~':type==='火'?'^':['電','光'].includes(type)?'*':['草','土'].includes(type)?'+':['冰','暗','毒'].includes(type)?'o':'+';
+ for(let yy=2;yy<12;yy++)for(let xx=1;xx<14;xx++)if(rows[yy][xx]==='.'&&((xx*7+yy*11+seed)%17===0))rows[yy][xx]=deco;
+ rows[3][7]='.';rows[11][7]='.';
+ return rows.map(r=>r.join(''));
+}
+const legendLairSources=[
+ [7,'a4',17,1,'a4'],[61,'a2',17,1,'school'],[63,'sea',13,2,'sea'],
+ [64,'volc',17,4,'volc'],[105,'a6',17,1,'a6'],[106,'a3',17,1,'a3']
+];
+for(let i=0;i<19;i++){
+ const id=RARE[i],e=ENEMIES[id],lid='L'+i;
+ if(!MAPS[lid])continue;
+ MAPS[lid]=themedLair(i+1,e.t||'普');
+ PAL[lid]=(TYPE_PALETTES[e.t]||TYPE_PALETTES['普']).slice();
+ const n=NPCS.find(q=>q.m===lid&&String(q.id||'').startsWith('leg'));
+ if(n){n.x=7;n.y=3}
+ const src=legendLairSources[i];
+ if(src){const [monId,m,ex,ey]=src;WARP[`${m},${ex},${ey}`]=[lid,7,11];WARP[`${lid},7,12`]=[m,ex,ey+1]}
+}
+
+/* Give every rare/legend guardian a reachable entrance, not only the first six lairs. */
+const lairAccessMaps=['a2','a3','a4','a5','a6','route','school','forest','sea','volc','mine','volcIn','town'];
+const lairAccessXs=[2,4,6,8,10,12,14,16,18];
+for(let i=0;i<19;i++){
+ const lid='L'+i,source=lairAccessMaps[i%lairAccessMaps.length],x=lairAccessXs[Math.floor(i/lairAccessMaps.length)]||2;
+ const y=['sea','volc'].includes(source)?11:10;
+ if(MAPS[source]&&MAPS[source][y]&&x<MAPS[source][y].length){
+  placeTile(source,x,y,'D');
+  WARP[`${source},${x},${y}`]=[lid,7,11];
+  WARP[`${lid},7,12`]=[source,x,y+1];
+ }
+}
+const _tileBeforeLairMarker=tile;
+tile=function(c,x,y,sx,sy){
+ if(cur.startsWith('L')&&c==='.'){R(sx,sy,16,16,1);if((x+y)%5===0)R(sx+7,sy+7,2,2,2);return}
+ if(cur.startsWith('L')&&c==='~'){R(sx,sy,16,16,1);R(sx+2,sy+4,7,2,2);R(sx+7,sy+10,7,2,2);return}
+ if(cur.startsWith('L')&&c==='^'){R(sx,sy,16,16,1);R(sx+2,sy+10,12,4,3);R(sx+5,sy+5,3,6,2);R(sx+10,sy+3,3,8,3);return}
+ if(cur.startsWith('L')&&c==='*'){R(sx,sy,16,16,1);T('✦',sx+4,sy+2,3,10);return}
+ if(cur.startsWith('L')&&c==='+'){R(sx,sy,16,16,1);R(sx+7,sy+3,2,10,3);R(sx+3,sy+7,10,2,3);return}
+ if(cur.startsWith('L')&&c==='o'){R(sx,sy,16,16,1);ell(sx+8,sy+8,5,5,3);ell(sx+8,sy+8,2,2,0);return}
+ _tileBeforeLairMarker(c,x,y,sx,sy);
+ /* Overlay the shop sign on the top-right roof tile of each shop building. */
+ const marker=HOUSE_MARKERS[`${cur}:${x}:${y}`];
+ if(marker){R(sx+6,sy+1,9,7,0);T(marker==='SHOP'?'S':marker,sx+7,sy+1,2,7)}
+ if(cur==='school'&&x===schoolMark[0]&&y===schoolMark[1]){R(sx+7,sy+1,8,7,0);T('學',sx+8,sy+1,2,7)}
+};
+
+/* Outside NPCs are never vendors. Only the dedicated indoor shopkeeper can sell. */
+const _talkBeforeIndoorShop=talk;
+talk=async function(N){
+ if(N.shop&&cur.startsWith('shop_'))return _talkBeforeIndoorShop(N);
+ if(N.shop){S.mode='event';await say('商店位於獨立建築內，請先進入商店再購買商品。');S.mode='map';return}
+ return _talkBeforeIndoorShop(N);
+};
+
 // Keyboard mapping: X is the old menu key, B is cancel, Y is map.
 
 /* ---------- input ---------- */
