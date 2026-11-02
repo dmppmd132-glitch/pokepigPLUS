@@ -134,11 +134,11 @@ const PIG_ULTIMATE_MOVE=MOVES.push({n:'豬豬終焉天光',p:88,a:.86,y:'光',pp
 const SPECIES_MOVES={0:[0,4,5],1:[0,9,6],2:[0,10,5],3:[0,8,4],4:[0,7,11],5:[0,6,4],6:[0,8,10],7:[0,20,11],8:[0,12,5],9:[0,13,6],10:[0,14,4],11:[0,15,5],61:[0,16],62:[0,17],63:[0,18],64:[0,19]};
 const TYPE_MOVE={火:7,水:8,草:9,電:10,土:6,暗:12,毒:13,冰:14,光:15,普:4};
 const movesFor0=(s,lv)=>{const p=ENEMIES[s],pool=SPECIES_MOVES[s]||[0,TYPE_MOVE[p?.t]||4,5];return [0,...pool.filter(i=>i!==0&&((i===pool[1]&&lv>=3)||(i===pool[2]&&lv>=8)||(i===pool[3]&&lv>=16)))].slice(0,4)};
-const moveLabel=i=>{const m=MOVES[i];return m.p?`${m.n} 威力${m.p}`:`${m.n}（${m.t==='d'?'降攻':'回復'}）`};
+const moveLabel=i=>{const m=MOVES[i];return m.p?`${m.n} 威力${m.p}`:`${m.n}（${m.t==='d'?'降攻':m.t==='rainbow'?'血量變1':m.t==='sweet'?'大補血+復活':'回復'}）`};
 const SE={普:[],火:['草','冰'],水:['火','土'],草:['水','土'],電:['水'],土:['電','火'],暗:['光'],毒:['草'],冰:['草','水'],光:['暗','毒']};
 const mult=(a,d)=>SE[a].includes(d)?2:SE[d].includes(a)?.5:1;
 const nb=()=>GYMS.filter((g,i)=>FL['b'+i]).length;
-const mon=(s,lv)=>{const p=ENEMIES[s],h=p.hp+lv*3,m=statInit({s,n:p.n,t:p.t,lv,max:h,hp:h,exp:0,dh:h,mv:movesFor(s,lv),atk:p.atk+lv});m.max+=m.iv.hp||0;m.hp=m.max;m.dh=m.hp;m.shiny=Math.random()<.015;return m};
+const mon=(s,lv)=>{const p=ENEMIES[s],h=p.hp+lv*3,m=statInit({s,n:p.n,t:p.t,lv,max:h,hp:h,exp:0,dh:h,mv:movesFor(s,lv),atk:p.atk+lv});m.max+=m.iv.hp||0;m.hp=m.max;m.dh=m.hp;m.shiny=Math.random()<.015;return yuFix(m)};
 const LEARN={3:4,5:5,7:6,9:8,10:PIG_EXCLUSIVE_MOVE,11:9,13:7,15:PIG_ULTIMATE_MOVE};
 /* 修正：呼叫端把「任務代號」放在第 11 個參數、「store」放第 12 個，原本參數對不上，導致所有任務 NPC 被當成商店店員而被刪除 */
 const mk=(m,x,y,c,id,d,t,w,a,q,shop,store)=>({m,x,y,c,id,d,t,w,a,q:q||shop||null,shop:store||null});
@@ -204,6 +204,13 @@ const wolfD=['拜月狼：嗷嗚——月光下的森林，只有我這一隻！
 NPCS.push(Object.assign(mk('forest',13,6,3,'wolf',wolfD,{n:'拜月狼',lv:5,b:{n:'拜月狼',hp:28,atk:5,d:moonWolf}},['拜月狼：嗚……月光認可你了。','森林的出口開啟了！'],wolfD[0]),{sp:wolfTile,hide:1}));
 ENEMIES.push({n:'鈺兔兔',t:'光',m:30,hp:60,atk:11,d:cuteSp(true,1,true)});
 MOVES.push({n:'撒嬌連環砲',p:28,a:.95,y:'光'},{n:'蘿蔔雨啪啦',p:30,a:.95,y:'草'},{n:'耍廢打滾擊',p:38,a:.9,y:'普'});SPECIES_MOVES[108]=[0,26,27,28];
+/* ===== 鈺兔兔專屬招式庫（玩家持有時套用）===== */
+const YU_SET=[
+ MOVES.push({n:'撒嬌連環砲',p:45,a:1,y:'光',pp:99})-1,
+ MOVES.push({n:'甜夢治癒',t:'sweet',pp:99})-1,
+ MOVES.push({n:'彩虹紅蘿蔔',t:'rainbow',pp:99})-1,
+ MOVES.push({n:'琉璃幻光・月兔晶華彈',p:99,a:1,y:'光',pp:99})-1];
+function yuFix(m){if(m&&m.s===108){if(!m.mv||m.mv.join()!==YU_SET.join())m.mv=YU_SET.slice();m.maxpp=m.mv.map(()=>99);m.pp=m.mv.map(()=>99)}return m}
 const SQ=[['水系怪物最怕哪個屬性？',['火','電','暗'],1],['兔子的長耳朵有什麼用？',['散熱聽遠處','能飛行','變蘿蔔'],0],['光屬性對誰效果絕佳？',['火','冰','暗'],2]];
 async function teach(){S.mode='event';if(FL.yu){await say('老師：你是班上的第一名！鈺兔兔就拜託你照顧囉。');return}
  await say('老師：我要出三題！答案都藏在三位同學的話裡，去問問他們吧。');
@@ -438,8 +445,9 @@ const oldUseLift=useLift;useLift=async function(key){const stops=LIFTS[key];if(!
 	 const e=events[rnd(0,events.length-1)];say(`${e[0]}\n${e[1]}`).then(()=>{e[2]();S.mode='map'});return true
 	}
 	 setupRandomHiddenRoads();
+function healAll(){party.forEach(m=>{statInit(m);m.hp=m.max;m.status='';m.maxpp=m.mv.map((mi,k)=>m.maxpp?.[k]??MOVES[mi]?.pp??10);m.pp=m.maxpp.slice();yuFix(m)});if(pig)pig.dh=pig.hp}
 async function center(h){
- S.mode='event';await say(h?'豬媳媳：歡迎回家！':'豬豬中心：歡迎光臨！');party.forEach(m=>m.hp=m.max);await say('已經幫你的隊伍全部回復了體力！');
+ S.mode='event';await say(h?'豬媳媳：歡迎回家！':'豬豬中心：歡迎光臨！');healAll();await say('已經幫你的隊伍全部回復了體力與 PP！');
  for(;;){S.prompt='還需要\n什麼服務？';const c=await choose(['電腦','存檔','離開'],1,'right');if(c===0)await pc();else if(c===1)await say(save()?'冒險已經記錄下來了！':'無法存檔……');else break}
  S.mode='map';
 }
@@ -497,7 +505,7 @@ function npcSprite(x,y,c){R(x+4,y+8,8,7,3);R(x+5,y+9,6,5,c);ell(x+8,y+5,4,4,3);e
 const SK='pigmon1';
 const has=()=>{try{return !!localStorage.getItem(SK)}catch(e){return false}};
 function save(){try{localStorage.setItem(SK,JSON.stringify({party,box:pcBox,act:party.indexOf(pig),dex:[...dex],m:cur,x:Pl.x,y:Pl.y,FL,bag:BAG,world:WORLD}));return 1}catch(e){return 0}}
-function load(){try{const d=JSON.parse(localStorage.getItem(SK));if(!d)return 0;party.length=0;(d.party||[Object.assign({n:'小豬',t:'普'},d.pig)]).forEach(m=>party.push(m));pig=party[d.act]||party[0];pcBox.length=0;(d.box||[]).forEach(m=>pcBox.push(m));(d.dex||[]).forEach(n=>dex.add(n));Object.assign(FL,d.FL||{});setupRandomHiddenRoads();if(FL.leg&&!FL.leg7)FL.leg7=1;Object.assign(BAG,d.bag||{});Object.assign(WORLD,d.world||{});party.forEach(statInit);setMap(d.m);Pl.x=d.x;Pl.y=d.y;return 1}catch(e){return 0}}
+function load(){try{const d=JSON.parse(localStorage.getItem(SK));if(!d)return 0;party.length=0;(d.party||[Object.assign({n:'小豬',t:'普'},d.pig)]).forEach(m=>party.push(m));pig=party[d.act]||party[0];pcBox.length=0;(d.box||[]).forEach(m=>pcBox.push(m));(d.dex||[]).forEach(n=>dex.add(n));Object.assign(FL,d.FL||{});setupRandomHiddenRoads();if(FL.leg&&!FL.leg7)FL.leg7=1;Object.assign(BAG,d.bag||{});Object.assign(WORLD,d.world||{});party.forEach(m=>yuFix(statInit(m)));pcBox.forEach(m=>yuFix(statInit(m)));setMap(d.m);Pl.x=d.x;Pl.y=d.y;return 1}catch(e){return 0}}
 async function bagMenu(){S.mode='event';for(;;){const rareCount=Object.values(BAG.rareDrops||{}).reduce((a,b)=>a+b,0);S.prompt=`背包　金幣 ${BAG.coins}\n避怪${BAG.repel}步　稀有素材${rareCount}　飼料∞`;const o=[],act=[];
  if(BAG.repel<=0)[100,200,400].forEach(v=>{if(BAG['rep'+v]){o.push(`避怪藥水${v}（${BAG['rep'+v]}）`);act.push(()=>{BAG['rep'+v]--;BAG.repel=v;return `使用了避怪藥水，接下來 ${v} 步不會遇到怪物！`})}});else{o.push('目前正在避怪');act.push(null)}
  if(BAG.heal){o.push(`補血藥（${BAG.heal}）`);act.push(async()=>{S.prompt='要幫誰補血？';const i=await choose(party.map(m=>`${m.n} ${m.hp}/${m.max}`),2,'full',true);if(i<0)return'';const m=party[i];if(m.hp<=0)return`${m.n}已經沒力了！`;if(m.hp>=m.max)return'體力已經是滿的了！';const h=Math.min(40,m.max-m.hp);m.hp+=h;BAG.heal--;if(m===pig)pig.dh=pig.hp;return`${m.n}恢復了${h}點體力！`})}
@@ -698,7 +706,7 @@ const ensureBattleMon=m=>{statInit(m);m.status=m.status||'';return m};
 const inflict=(m,st,ch=.16)=>{if(!m.status&&Math.random()<ch){m.status=st;return true}return false};
 const statusTick=async m=>{if(!m.status)return true;if(m.status==='burn'||m.status==='poison'){const d=Math.max(1,Math.round(m.max*(m.status==='burn'?.06:.08)));m.hp=Math.max(0,m.hp-d);await say(`${m.n}因${STATUS_NAMES[m.status]}受到${d}點傷害！`)}if(m.status==='paralyze'&&Math.random()<.25){await say(`${m.n}因麻痺無法行動！`);return false}if(m.status==='freeze'&&Math.random()<.65){await say(`${m.n}仍在冰凍中！`);return false}if(m.status==='sleep'&&Math.random()<.7){await say(`${m.n}正在睡覺！`);return false}if(Math.random()<.12)m.status='';return true};
 const calcDamage=(M,A,D)=>{const special=!!M.y,atk=special?(A.spa||A.atk):A.atk,def=special?(D.spd||D.def):D.def;let d=Math.max(1,Math.round((M.p||A.atk)*(A.pwr||1)*(atk/Math.max(1,def))));if(WEATHER_TYPE[WORLD.weather]===M.y)d=Math.round(d*1.2);if((M.y==='火'&&FL.volcBuff)||(M.y==='冰'&&FL.iceBuff)||(FL.dreamBuff&&(M.y==='光'||M.y==='暗'))||(FL.seaBuff&&M.y==='水'))d=Math.round(d*1.15);const night=WORLD.time>=18||WORLD.time<6;if((night&&M.y==='暗')||(!night&&M.y==='光'))d=Math.round(d*1.1);const bossCrit=(B&&B.e&&B.e.s>=finalBossBase)?(BOSS_BALANCE[B.e.s]?.crit||.08):.06;const crit=Math.random()<Math.min(.25,bossCrit+((A.speed||5)-(D.speed||5))*.01);return {d:Math.max(1,Math.round(d*(crit?2:1))),crit}};
-async function enemyAct(){const E=B.e;if(!(await statusTick(E)))return true;if(!E.phase&&E.hp<E.max*.3&&E.s>=finalBossBase){E.phase=1;E.atk+=5;E.def+=5;E.speed+=5;await say(`${E.n}發出了震天的咆哮，進入了第二階段！能力大幅提升！`)}const ei=pick(E.mv||[0]),EM=MOVES[ei];await say(`${E.n}${statusLabel(E)}使出了${moveLabel(ei)}！`);if(EM.t==='d'){if(E.st>-3){E.st--;await say(`${pig.n}的攻擊被壓制了！`)}else await say('但是沒有更多效果了！')}else if(EM.t==='h'){await legendFx(ei,'e');const h=6+E.lv;E.hp=Math.min(E.max,E.hp+h);await say(`${E.n}恢復了${h}點體力！`)}else if(Math.random()>.1){const mx=mult(EM.y||E.t,pig.t),z=calcDamage(EM,E,pig),d=Math.max(1,Math.round(z.d*mx*(.8+Math.random()*.5)*Math.max(.4,1+.25*E.st)));if(z.crit)await say('對手使出會心一擊！');if(EM.y==='火')inflict(pig,'burn');if(EM.y==='毒')inflict(pig,'poison');if(EM.y==='電')inflict(pig,'paralyze');if(EM.y==='冰')inflict(pig,'freeze');pig.hp=Math.max(0,pig.hp-d);if(ei===PIG_ULTIMATE_MOVE){B.fx={kind:'ultimate',t:S.t,cx:40,cy:68};await sleep(1200);B.fx=null}else if(ei===PIG_EXCLUSIVE_MOVE){B.fx={t:S.t,cx:40,cy:68};await sleep(700);B.fx=null}else await legendFx(ei,'e');await blink('p');await say(`${pig.n}受到了${d}點傷害！`);if(mx!==1)await say(mx>1?'效果絕佳！':'效果不太好……')}else await say('但是沒有打中！');if(pig.hp<=0){await say(`${pig.n}倒下了……`);if(party.some(m=>m.hp>0)){while(!(await swap(1)));return true}await say('隊伍全軍覆沒，被送回了豬窩。');party.forEach(m=>{m.hp=m.max;m.status=''});pig=party[0];pig.dh=pig.hp;setMap('town');Pl.x=3;Pl.y=4;return false}return true}
+async function enemyAct(){const E=B.e;if(!(await statusTick(E)))return true;if(!E.phase&&E.hp<E.max*.3&&E.s>=finalBossBase){E.phase=1;E.atk+=5;E.def+=5;E.speed+=5;await say(`${E.n}發出了震天的咆哮，進入了第二階段！能力大幅提升！`)}const ei=pick(E.mv||[0]),EM=MOVES[ei];await say(`${E.n}${statusLabel(E)}使出了${moveLabel(ei)}！`);if(EM.t==='d'){if(E.st>-3){E.st--;await say(`${pig.n}的攻擊被壓制了！`)}else await say('但是沒有更多效果了！')}else if(EM.t==='h'){await legendFx(ei,'e');const h=6+E.lv;E.hp=Math.min(E.max,E.hp+h);await say(`${E.n}恢復了${h}點體力！`)}else if(Math.random()>.1){const mx=mult(EM.y||E.t,pig.t),z=calcDamage(EM,E,pig),d=Math.max(1,Math.round(z.d*mx*(.8+Math.random()*.5)*Math.max(.4,1+.25*E.st)));if(z.crit)await say('對手使出會心一擊！');if(EM.y==='火')inflict(pig,'burn');if(EM.y==='毒')inflict(pig,'poison');if(EM.y==='電')inflict(pig,'paralyze');if(EM.y==='冰')inflict(pig,'freeze');pig.hp=Math.max(0,pig.hp-d);if(ei===PIG_ULTIMATE_MOVE){B.fx={kind:'ultimate',t:S.t,cx:40,cy:68};await sleep(1200);B.fx=null}else if(ei===PIG_EXCLUSIVE_MOVE){B.fx={t:S.t,cx:40,cy:68};await sleep(700);B.fx=null}else await legendFx(ei,'e');await blink('p');await say(`${pig.n}受到了${d}點傷害！`);if(mx!==1)await say(mx>1?'效果絕佳！':'效果不太好……')}else await say('但是沒有打中！');if(pig.hp<=0&&pig.s===108&&B&&!B.yuRev){B.yuRev=1;pig.hp=Math.ceil(pig.max/2);pig.dh=pig.hp;pig.status='';await say(`${pig.n}的復活被動發動！回復了一半體力，再度站了起來！`);return true}if(pig.hp<=0){await say(`${pig.n}倒下了……`);if(party.some(m=>m.hp>0)){while(!(await swap(1)));return true}await say('隊伍全軍覆沒，被送回了豬窩。');party.forEach(m=>{m.hp=m.max;m.status=''});pig=party[0];pig.dh=pig.hp;setMap('town');Pl.x=3;Pl.y=4;return false}return true}
 const isRareMon=e=>{const i=ENEMIES.indexOf(e);return i===9||i===11||(i>=95&&i<=104)||(typeof BIOME_IDS!=='undefined'&&BIOME_IDS.includes(i))};
 const pickWild=W=>{if(W)return pick([ENEMIES[3],ENEMIES[6]]);const p=wildPool(),r=p.filter(isRareMon),c=p.filter(e=>!isRareMon(e));if(!r.length||!c.length)return pick(p);return Math.random()<(FL.rare?.1:.05)?pick(r):pick(c)};
 async function battle(T,W,L){
@@ -734,10 +742,12 @@ async function battle(T,W,L){
 }
 async function useMove(i){
  const M=MOVES[i],E=B.e,slot=pig.mv.indexOf(i);ensureBattleMon(pig);
- if((pig.pp?.[slot]??10)<=0){await say('這招的 PP 用完了！');return false}pig.pp[slot]--;
+ if((pig.pp?.[slot]??10)<=0){await say('這招的 PP 用完了！');return false}if(pig.s!==108)pig.pp[slot]--;
  if(M.t==='h'&&B.eat<=0){await say('飼料桶空了！');return false}
  await say(`${pig.n}使出了${M.n}！`);
  if(M.t==='d'){if(E.st>-3){E.st--;await say(`${E.n}的攻擊下降了！`)}else await say('但是沒有效果……');return true}
+ if(M.t==='sweet'){await legendFx(i,'p');const b0=pig.hp;pig.hp=Math.min(pig.max,pig.hp+Math.round(pig.max*.7)+20);pig.status='';await say(`${pig.n}恢復了${pig.hp-b0}點體力！`);const dn=party.filter(x=>x!==pig&&x.hp<=0);dn.forEach(x=>{x.hp=Math.ceil(x.max*.5);x.status=''});if(dn.length)await say(`${dn.map(x=>x.n).join('、')}被甜甜的夢喚醒，復活了！`);return true}
+ if(M.t==='rainbow'){await legendFx(i,'p');await blink('e');E.hp=Math.min(E.hp,1);await say(`${E.n}的體力被彩虹紅蘿蔔變成 1 了！`);return true}
  if(M.t==='h'){await legendFx(i,'p');B.eat--;const h=8+pig.lv*2;pig.hp=Math.min(pig.max,pig.hp+h);pig.status='';await say(`${pig.n}大口吃飯，恢復了${h}點體力！`);return true}
  if(Math.random()>M.a){await say('但是沒有命中……');return true}
  const mx=mult(M.y||'普',E.t),z=calcDamage(M,pig,E),d=Math.max(1,Math.round(z.d*mx*(.85+Math.random()*.3)));if(z.crit)await say('會心一擊！');
@@ -794,7 +804,9 @@ const LEGEND_FX={
  '彩虹星爆':{k:'rainbow',d:1800,s:'lgBoom',sh:3},
  '撒嬌連環砲':{k:'cutebarrage',d:1500,s:'lgLight'},
  '蘿蔔雨啪啦':{k:'radishrain',d:1500,s:'lgHit'},
- '耍廢打滾擊':{k:'roll',d:1400,s:'lgRoll',sh:3}
+ '耍廢打滾擊':{k:'roll',d:1400,s:'lgRoll',sh:3},
+ '彩虹紅蘿蔔':{k:'radishrain',d:1500,s:'lgHit'},
+ '琉璃幻光・月兔晶華彈':{k:'moonwish',d:1700,s:'lgLight',sh:2}
 };
 const SIG_RE=/(奇蹟|祝福|狂想曲|閃擊|之歌)$/;
 const legendFxDef=i=>{const m=MOVES[i];if(!m)return null;return LEGEND_FX[m.n]||(SIG_RE.test(m.n)&&m.p?{k:'sigburst',d:1100,s:'lgLight'}:null)};
@@ -1526,7 +1538,7 @@ for(const mapName of _hospitalMaps){
  /* 沿用原本單一 C／h 房屋磚作為唯一入口，不再改寫周邊道路。 */
  WARP[`${mapName},${hx},${hy}`]=[room,4,7];
  WARP[`${room},4,8`]=[mapName,hx,Math.min(rows.length-2,hy+1)];
- NPCS.push(Object.assign(mk(room,4,3,2,'nurse_'+mapName,['護理師：歡迎來到健康中心！需要恢復隊伍體力嗎？']),{fn:async()=>{party.forEach(m=>m.hp=m.max);pig.dh=pig.hp;await say('全隊已恢復體力！')}}));
+ NPCS.push(Object.assign(mk(room,4,3,2,'nurse_'+mapName,['護理師：歡迎來到健康中心！需要恢復隊伍體力嗎？']),{fn:async()=>{S.mode='event';await say('護理師：歡迎來到健康中心！');healAll();await say('全隊的體力與 PP 都已經全部恢復了！');for(;;){S.prompt='還需要\n什麼服務？';const c=await choose(['電腦','存檔','離開'],1,'right');if(c===0)await pc();else if(c===1)await say(save()?'冒險已經記錄下來了！':'無法存檔……');else break}S.mode='map'}}));
 }
 /* The old instant-heal tile is no longer a service shortcut. */
 const _centerBeforeBuildingEntry=center;
