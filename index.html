@@ -1934,6 +1934,178 @@ center=async function(h){
  window.__LAIR=LAIR;
 })();
 
+/* ===== 小遊戲專用遊戲畫面（取代原本只有對話框的小遊戲） ===== */
+let MG=null;
+const MG_DEF={
+ snake:{name:'貪食蛇',goal:'吃到 8 顆星果',how:['方向鍵控制前進方向','撞牆或咬到自己就失敗']},
+ catch:{name:'接球躲落石',goal:'接住 12 顆水果',how:['左右鍵移動籃子','落石砸中 3 次就失敗']},
+ jump:{name:'彈跳跑酷',goal:'越過 10 個障礙',how:['A 或 ▲ 跳過障礙','撞到 3 次就失敗']},
+ memory:{name:'記憶翻牌',goal:'配對 8 組圖案',how:['方向鍵移動，A 翻牌','最多翻 24 次']},
+ stones:{name:'雙石推推樂',goal:'兩顆石頭推到目標格',how:['方向鍵移動並推石頭','X 重新開始']}
+};
+const MG_ICONS=[
+ ['.#.#.#.','#######','#######','.#####.','..###..','...#...','.......'],
+ ['...#...','...#...','#######','.#####.','..###..','.##.##.','.#...#.'],
+ ['..####.','.###...','###....','###....','###....','.###...','..####.'],
+ ['...#...','.#.#.#.','..###..','###.###','..###..','.#.#.#.','...#...'],
+ ['...#...','...#...','..###..','.#####.','.#####.','.#####.','..###..'],
+ ['..#.#..','.#####.','#.###.#','.#####.','..#.#..','...#...','...#...'],
+ ['...##..','..##...','.###...','..####.','...##..','..##...','.#.....'],
+ ['...#...','..###..','.#####.','#######','.#####.','..###..','...#...']
+];
+const HEART5=['.#.#.','#####','#####','.###.','..#..'];
+const mgBits=(rows,x,y,c,s=1)=>{rows.forEach((r,j)=>{for(let i=0;i<r.length;i++)if(r[i]==='#')R(x+i*s,y+j*s,s,s,c)})};
+const mgHearts=(n,max,x,y)=>{for(let i=0;i<max;i++)mgBits(HEART5,x+i*7,y,i<n?2:1)};
+const mgC=(s,y,c,z)=>{ctx.font=z+'px '+FONT;const w=ctx.measureText(s).width;T(s,Math.round((160-w)/2),y,c,z)};
+const mgHead=(l,r)=>{R(0,0,160,17,2);R(0,17,160,1,3);T(l,6,4,0,9);if(r){ctx.font='9px '+FONT;const w=ctx.measureText(r).width;T(r,154-w,4,0,9)}};
+const mgFood=s=>{let f;do{f=[rnd(0,17),rnd(0,13)]}while(s.some(p=>p[0]===f[0]&&p[1]===f[1]));return f};
+function mgInit(k,o){
+ if(k==='snake'){const m={s:[[9,7],[8,7],[7,7]],dir:[1,0],q:null,eaten:0,acc:0,step:.17};m.food=mgFood(m.s);return m}
+ if(k==='catch')return{bx:80,items:[],spawn:.5,score:0,lives:3,time:0,flash:0};
+ if(k==='jump')return{py:0,vy:0,obs:[],spawn:.9,passed:0,lives:3,speed:78,dist:0,inv:0,time:0};
+ if(k==='memory'){const deck=[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7];for(let z=15;z>0;z--){const j=Math.floor(Math.random()*(z+1));[deck[z],deck[j]]=[deck[j],deck[z]]}return{deck,fl:[],done:new Set(),c:0,lock:0,tries:24,pairs:0}}
+ if(k==='stones')return{init:o.stones.map(a=>[...a]),rk:o.stones.map(a=>[...a]),goals:o.goals,p:[0,0],moves:0};
+}
+function miniPlay(kind,opt){return new Promise(res=>{MG={k:kind,st:'intro',res,t:0,last:0,cd:0,won:false,msg:'',tOver:0,...mgInit(kind,opt)};S.mode='mini'})}
+function mgEnd(won,msg){if(!MG||MG.st==='over')return;MG.st='over';MG.won=won;MG.msg=msg;MG.tOver=0;MU.sfx(won?'win':'miss')}
+function mgFinish(){const m=MG;MG=null;S.mode='event';m.res(m.won)}
+const MG_UPD={
+ snake(dt){const m=MG;m.acc+=dt;while(m.acc>=m.step&&m.st==='play'){m.acc-=m.step;
+  if(m.q&&!(m.q[0]===-m.dir[0]&&m.q[1]===-m.dir[1]))m.dir=m.q;m.q=null;
+  const h=[m.s[0][0]+m.dir[0],m.s[0][1]+m.dir[1]],eat=h[0]===m.food[0]&&h[1]===m.food[1],body=eat?m.s:m.s.slice(0,-1);
+  if(h[0]<0||h[0]>17||h[1]<0||h[1]>13||body.some(p=>p[0]===h[0]&&p[1]===h[1])){mgEnd(false,'撞到了！');return}
+  m.s.unshift(h);
+  if(eat){m.eaten++;MU.sfx('catch');if(m.eaten>=8){mgEnd(true,'吃得飽飽的！');return}m.food=mgFood(m.s);m.step=Math.max(.095,.17-m.eaten*.009)}else m.s.pop()}},
+ catch(dt){const m=MG;m.time+=dt;m.flash=Math.max(0,m.flash-dt);
+  m.bx=Math.max(14,Math.min(146,m.bx+((held.right?1:0)-(held.left?1:0))*92*dt));
+  m.spawn-=dt;if(m.spawn<=0){m.spawn=Math.max(.42,.82-m.time*.008);m.items.push({x:rnd(10,150),y:20,t:Math.random()<.68?0:1})}
+  const sp=46+Math.min(50,m.time*1.6);
+  for(const it of m.items){it.y+=sp*dt;
+   if(it.y>=112&&it.y<=126&&Math.abs(it.x-m.bx)<=12){it.dead=1;
+    if(it.t===0){m.score++;MU.sfx('catch');if(m.score>=12){mgEnd(true,'接得好棒！');return}}
+    else{m.lives--;m.flash=.6;MU.sfx('hurt');if(m.lives<=0){mgEnd(false,'被落石砸暈了！');return}}}}
+  m.items=m.items.filter(it=>!it.dead&&it.y<142)},
+ jump(dt){const m=MG;m.time+=dt;m.inv=Math.max(0,m.inv-dt);m.speed=Math.min(125,78+m.time*1.6);m.dist+=m.speed*dt;
+  if(m.py>0||m.vy>0){m.vy-=520*dt;m.py+=m.vy*dt;if(m.py<=0){m.py=0;m.vy=0}}
+  m.spawn-=dt;if(m.spawn<=0){const o=pick([{w:8,h:12},{w:12,h:9},{w:6,h:18}]);m.obs.push({x:168,w:o.w,h:o.h,ok:0,hit:0});m.spawn=1.05+Math.random()*.75}
+  for(const o of m.obs){o.x-=m.speed*dt;
+   if(!o.hit&&m.inv<=0&&o.x<34&&o.x+o.w>22&&m.py<o.h-1){o.hit=1;m.lives--;m.inv=1.1;MU.sfx('hurt');if(m.lives<=0){mgEnd(false,'撞到障礙了！');return}}
+   if(!o.ok&&o.x+o.w<22){o.ok=1;if(!o.hit){m.passed++;MU.sfx('move');if(m.passed>=10){mgEnd(true,'輕鬆跳過所有障礙！');return}}}}
+  m.obs=m.obs.filter(o=>o.x>-20)},
+ memory(dt){const m=MG;if(m.lock>0){m.lock-=dt;if(m.lock<=0){const[a,b]=m.fl;
+   if(m.deck[a]===m.deck[b]){m.done.add(a);m.done.add(b);m.pairs++;MU.sfx('catch')}else MU.sfx('miss');
+   m.fl=[];m.tries--;
+   if(m.pairs>=8){mgEnd(true,'全部配對成功！');return}
+   if(m.tries<=0)mgEnd(false,'翻牌次數用完了')}}},
+ stones(){}
+};
+const MG_PRESS={
+ snake(k){const d={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]}[k];if(d)MG.q=d},
+ catch(){},
+ jump(k){const m=MG;if((k==='a'||k==='up')&&m.py===0&&m.vy===0){m.vy=195;m.py=.01;MU.sfx('move')}},
+ memory(k){const m=MG;
+  if(k==='left'&&m.c%4>0)m.c--;if(k==='right'&&m.c%4<3)m.c++;if(k==='up'&&m.c>3)m.c-=4;if(k==='down'&&m.c<12)m.c+=4;
+  if(k==='a'&&m.lock<=0&&!m.done.has(m.c)&&!m.fl.includes(m.c)){m.fl.push(m.c);MU.sfx('move');if(m.fl.length===2)m.lock=.7}},
+ stones(k){const m=MG;
+  if(k==='x'){m.rk=m.init.map(a=>[...a]);m.p=[0,0];m.moves=0;return}
+  const d={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]}[k];if(!d)return;
+  const nx=m.p[0]+d[0],ny=m.p[1]+d[1];if(nx<0||nx>4||ny<0||ny>4)return;
+  const si=m.rk.findIndex(s=>s[0]===nx&&s[1]===ny);
+  if(si>=0){const tx=nx+d[0],ty=ny+d[1];if(tx<0||tx>4||ty<0||ty>4||m.rk.some(s=>s[0]===tx&&s[1]===ty))return;m.rk[si]=[tx,ty]}
+  m.p=[nx,ny];m.moves++;MU.sfx('move');
+  if(m.rk.every(s=>m.goals.some(g=>g[0]===s[0]&&g[1]===s[1])))mgEnd(true,'兩顆石頭就位！')}
+};
+const mgPig=(x,y,c1,c2)=>{ell(x,y,7,6,3);ell(x,y,6,5,c1);R(x-6,y-8,3,3,3);R(x+3,y-8,3,3,3);R(x-5,y-7,1,1,c2);R(x+4,y-7,1,1,c2);R(x-3,y-2,1,2,3);R(x+2,y-2,1,2,3);ell(x,y+2,2,1,c2)};
+const MG_DRAW={
+ snake(){const m=MG;mgHead('貪食蛇',`星果 ${m.eaten}/8`);const ox=8,oy=22;R(ox-2,oy-2,148,116,3);
+  for(let y=0;y<14;y++)for(let x=0;x<18;x++)R(ox+x*8,oy+y*8,8,8,(x+y)&1?0:1);
+  const fx=ox+m.food[0]*8,fy=oy+m.food[1]*8;ell(fx+4,fy+5,3,3,2);R(fx+4,fy+1,1,2,3);R(fx+5,fy+1,2,1,3);
+  for(let i=m.s.length-1;i>=0;i--){const x=ox+m.s[i][0]*8,y=oy+m.s[i][1]*8;
+   if(i){R(x+1,y+1,6,6,2);R(x+2,y+2,2,2,1)}
+   else{R(x,y,8,8,3);const d=m.dir,e=d[0]>0?[[5,2],[5,5]]:d[0]<0?[[2,2],[2,5]]:d[1]<0?[[2,2],[5,2]]:[[2,5],[5,5]];e.forEach(([a,b])=>R(x+a,y+b,1,1,0));R(x+(d[0]>0?7:d[0]<0?0:3),y+(d[1]>0?7:d[1]<0?0:3),1,1,1)}}},
+ catch(){const m=MG;mgHead('接球躲落石',`${m.score}/12`);R(0,18,160,110,0);ell(30,44,12,4,1);ell(112,60,14,4,1);ell(76,36,9,3,1);R(0,128,160,16,1);R(0,128,160,1,3);
+  mgHearts(m.lives,3,6,21);
+  for(const it of m.items){const x=Math.round(it.x),y=Math.round(it.y);
+   if(it.t===0){ell(x,y,3,3,2);R(x,y-5,1,2,3);R(x+1,y-5,2,1,3)}else{ell(x,y,4,3,3);R(x-2,y-2,2,1,1)}}
+  if(!(m.flash>0&&(Math.floor(m.time*14)&1))){const bx=Math.round(m.bx);mgPig(bx,113,1,2)}
+  const bx=Math.round(m.bx);R(bx-11,119,22,2,3);R(bx-10,121,20,6,2);R(bx-9,127,18,1,3)},
+ jump(){const m=MG;mgHead('彈跳跑酷',`越過 ${m.passed}/10`);R(0,18,160,94,0);
+  const hx=-((m.dist*.3)%58);for(let i=0;i<4;i++)ell(Math.round(hx+i*58+20),112,26,12,1);
+  const cx=-((m.dist*.1)%100);for(let i=0;i<3;i++)ell(Math.round(cx+i*100+40),38,10,4,1);
+  R(0,112,160,32,1);R(0,112,160,2,3);const x1=-(m.dist%24);for(let i=0;i<8;i++){R(Math.round(x1+i*24),122,10,1,2);R(Math.round(x1+i*24+12),132,8,1,2)}
+  mgHearts(m.lives,3,6,21);
+  for(const o of m.obs){const x=Math.round(o.x),b=112;
+   if(o.h===12){R(x,b-o.h,2,o.h,3);R(x+o.w-2,b-o.h,2,o.h,3);R(x,b-o.h+3,o.w,2,3);R(x,b-5,o.w,2,3)}
+   else if(o.h===9)ell(x+6,b-4,6,4,3),R(x+3,b-8,3,1,1);
+   else{R(x,b-o.h,o.w,o.h,3);R(x-1,b-o.h,o.w+2,3,2)}}
+  if(!(m.inv>0&&(Math.floor(m.time*14)&1))){const py=Math.round(m.py),y=112-py;
+   ell(28,y-6,8,6,3);ell(28,y-6,7,5,1);ell(35,y-9,5,4,3);ell(35,y-9,4,3,1);R(33,y-14,3,3,3);R(38,y-8,2,2,2);R(36,y-10,1,1,3);R(19,y-8,2,2,3);
+   if(py>0){R(24,y-1,2,2,3);R(31,y-1,2,2,3)}else{const f=Math.floor(m.time*10)&1;R(f?23:25,y-1,2,2,3);R(f?32:30,y-1,2,2,3)}}},
+ memory(){const m=MG;mgHead('記憶翻牌',`${m.pairs}/8 組　剩 ${m.tries} 次`);R(0,18,160,126,0);
+  for(let i=0;i<16;i++){const x=11+(i%4)*35,y=22+Math.floor(i/4)*29,face=m.done.has(i)||m.fl.includes(i),cur=i===m.c;
+   R(x,y,32,26,3);
+   if(face){R(x+1,y+1,30,24,m.done.has(i)?1:0);mgBits(MG_ICONS[m.deck[i]],x+9,y+6,3,2)}
+   else{R(x+1,y+1,30,24,cur?1:2);ell(x+16,y+13,6,5,cur?2:1);R(x+13,y+12,1,2,3);R(x+18,y+12,1,2,3)}
+   if(cur){const c=(Math.floor(m.t*4)&1)?2:3;R(x-1,y-1,34,1,c);R(x-1,y+26,34,1,c);R(x-1,y-1,1,28,c);R(x+32,y-1,1,28,c)}}},
+ stones(){const m=MG;mgHead('雙石推推樂',`步數 ${m.moves}`);R(0,18,160,126,0);const ox=35,oy=24;R(ox-2,oy-2,94,94,3);
+  for(let y=0;y<5;y++)for(let x=0;x<5;x++)R(ox+x*18,oy+y*18,18,18,(x+y)&1?0:1);
+  m.goals.forEach(g=>{const cx=ox+g[0]*18+9,cy=oy+g[1]*18+9;ell(cx,cy,6,6,2);ell(cx,cy,4,4,0);ell(cx,cy,2,2,2)});
+  m.rk.forEach(s=>{const cx=ox+s[0]*18+9,cy=oy+s[1]*18+9,on=m.goals.some(g=>g[0]===s[0]&&g[1]===s[1]);ell(cx,cy,7,6,3);ell(cx-1,cy-1,5,4,on?1:2);R(cx-3,cy-3,2,1,0)});
+  const px=ox+m.p[0]*18+9,py=oy+m.p[1]*18+9;mgPig(px,py+1,1,2);
+  T('X 重來　B 離開',44,120,2,8)}
+};
+function miniUpdate(){
+ const now=performance.now(),dt=Math.min(.05,(now-(MG.last||now))/1000);MG.last=now;MG.t+=dt;
+ if(MG.st==='over'){MG.tOver+=dt;return}
+ if(MG.st!=='play')return;
+ if(MG.cd>0){MG.cd-=dt;return}
+ MG_UPD[MG.k](dt);
+}
+function miniDraw(){
+ const m=MG;if(!m)return;const def=MG_DEF[m.k];
+ if(m.st==='intro'){
+  R(0,0,160,144,0);box(4,4,152,136);
+  mgC('小遊戲挑戰',12,1,8);mgC(def.name,24,3,14);
+  mgC('目標：'+def.goal,50,2,9);
+  def.how.forEach((s,i)=>mgC(s,70+i*13,3,8));
+  for(let i=0;i<3;i++)mgBits(MG_ICONS[1],38+i*34,100,i===1?2:1,2);
+  if(Math.floor(m.t*2.5)&1)mgC('A 開始　B 放棄',121,2,8);
+ }else{
+  MG_DRAW[m.k]();
+  if(m.st==='play'&&m.cd>0){box(40,56,80,28);mgC('準備！',63,2,13)}
+  if(m.st==='over'){box(22,48,116,50);mgC(m.won?'挑戰成功！':'挑戰失敗',55,2,13);mgC(m.msg,75,3,8);if(Math.floor(m.t*2.5)&1)mgC('A：離開',85,2,8)}
+ }
+ if(m.t<.5){const p=m.t/.5;for(let i=0;i<9;i++){const w=Math.max(0,Math.min(160,(1-p)*230-i*12));R(i%2?160-w:0,i*16,w,16,3)}}
+}
+function miniPress(k){const m=MG;if(!m)return;
+ if(m.st==='intro'){if(k==='a'){m.st='play';m.cd=.9;MU.sfx('move')}else if(k==='b'){m.won=false;mgFinish()}return}
+ if(m.st==='play'){if(k==='b'){mgEnd(false,'放棄了挑戰');return}if(m.cd>0)return;MG_PRESS[m.k](k);return}
+ if(m.st==='over'&&k==='a'&&m.tOver>.4)mgFinish();
+}
+const _pressBeforeMini=press;
+press=function(k){if(S.mode==='mini'){miniPress(k);return}_pressBeforeMini(k)};
+const _drawBeforeMini=draw;
+draw=function(){if(S.mode==='mini'&&MG){ctx.setTransform(3,0,0,3,0,0);miniUpdate();miniDraw();return}_drawBeforeMini()};
+rockPuzzle=async function(key){
+ const q=ROCK_PUZZLES[key];if(!q||FL['rock:'+key])return;
+ S.mode='event';
+ const kinds=['snake','catch','jump','memory'],kind=kinds[Math.floor(Math.random()*kinds.length)];
+ await say(`機關隨機抽中了「${MG_DEF[kind].name}」！準備開始挑戰。`);
+ const won=await miniPlay(kind);
+ if(won){FL['rock:'+key]=1;q.reward();await say('挑戰成功！機關解除並獲得專屬獎勵！')}
+ else await say('這次沒有完成挑戰，可以再次進入嘗試。');
+ S.mode='map';
+};
+multiPuzzle=async function(key){
+ const q=MULTI_PUZZLES[key];if(!q||FL['multi:'+key])return;
+ S.mode='event';
+ await say(`${q.title}：把兩顆石頭推進發光的目標格！`);
+ const won=await miniPlay('stones',{stones:q.stones,goals:q.goals});
+ if(won){FL['multi:'+key]=1;q.reward();await say('兩顆石頭同時嵌入目標格，複合機關完成！')}
+ else await say('機關暫時沒有反應，可以再次嘗試。');
+ S.mode='map';
+};
+
 MU.bind(document.getElementById('mu'));
 tick();
 </script></body></html>
