@@ -38,6 +38,7 @@ const FONT="'PingFang TC','Noto Sans TC','Microsoft JhengHei',sans-serif";
 const R=(x,y,w,h,c)=>{ctx.fillStyle=P4[c];ctx.fillRect(x,y,w,h)};
 const ell=(cx,cy,rx,ry,c)=>{for(let dy=-ry;dy<=ry;dy++){const w=Math.round(rx*Math.sqrt(1-dy*dy/(ry*ry+.01)));R(cx-w,cy+dy,2*w+1,1,c)}};
 const T=(s,x,y,c=3,z=10)=>{ctx.font=z+'px '+FONT;ctx.textBaseline='top';ctx.fillStyle=P4[c];ctx.fillText(s,x,y)};
+const TC=(s,x,y,col,z=8)=>{ctx.font=z+'px '+FONT;ctx.textBaseline='top';ctx.fillStyle=col;ctx.fillText(s,x,y)};
 const fitText=(s,max,z=10)=>{ctx.font=z+'px '+FONT;let t=String(s);while(t.length&&ctx.measureText(t).width>max)t=t.slice(0,-1);return t.length<String(s).length&&t.length>1?t.slice(0,-1)+'…':t};
 const box=(x,y,w,h)=>{R(x,y,w,h,3);R(x+1,y+1,w-2,h-2,2);R(x+2,y+2,w-4,h-4,0)};
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -1772,7 +1773,7 @@ center=async function(h){
   if(String(n.id||'').startsWith('nurse_'))return '+';
   if(String(n.id||'').startsWith('boss'))return FL[n.id]?'':'王';
   if(n.t&&!FL[n.id])return '戰';
-  if(n.q)return '!';
+  if(n.q){const st=FL['q:'+n.q],qq=QUESTS[n.q];if(st==='done')return '';if(st==='active'&&qq&&qq.done())return '!G';return '!'}
   if(String(n.id||'').startsWith('leg')&&!FL[n.id])return '★';
   if(n.fn&&n.id==='teacher')return '師';
   return ''};
@@ -1786,6 +1787,7 @@ center=async function(h){
    const b=badgeOf(n);if(!b)continue;
    const bx=n.x*16-cx+3,by=n.y*16-cy-7+12;
    if(by<13||bx<0||bx>150)continue;
+   if(b==='!G'){ctx.fillStyle='#2e9e48';ctx.fillRect(bx,by,10,9);R(bx+1,by+1,8,7,0);TC('!',bx+1,by,'#2e9e48',8);continue}
    R(bx,by,10,9,3);R(bx+1,by+1,8,7,0);T(b,bx+1,by,3,8);}
   /* 狀態列已併成單行，在 drawMap 內畫好，這裡不用再補 */
  };
@@ -2117,6 +2119,93 @@ multiPuzzle=async function(key){
  else await say('機關暫時沒有反應，可以再次嘗試。');
  S.mode='map';
 };
+
+
+/* ===== 任務頁面優化：選取＋解說＋提示／可交付顯示 ===== */
+(function questUI(){
+ const G='#2e9e48',MN=m=>(window.MAP_NAMES&&MAP_NAMES[m])||m;
+ const spot=(m,x,y,what)=>`前往「${MN(m)}」，走到座標(${x},${y})的特殊格子上${what?'，找到'+what:''}。（座標從地圖左上角 0,0 算起）`;
+ const QINFO={
+  patrol:{how:'從豬豬鎮往外走到藍濱水族城（進城就算到訪），再於野外打贏 1 場戰鬥，然後回來交任務。',reward:'18 點經驗值'},
+  bottle:{how:()=>spot('sea',6,8,'漂流瓶'),reward:'全隊最大體力 +3'},
+  rare:{how:'「月光靈」是稀有怪物，要多在各地野外探索遇敵。遇到後先把牠打到低血量，再用飼料捕獲並登錄圖鑑。',reward:'全隊體力全滿'},
+  legend:{how:()=>spot('volc',6,8,'熔岩裂隙'),reward:'唯一的傳說必捕飼料'},
+  dream:{how:'捕獲不同種類的怪物，讓圖鑑登錄達 10 隻，再回來交任務並解開 9 顆星星謎題（A 切換周圍、B 重新洗牌）。',reward:'夢幻兔豬皇加入隊伍'},
+  eforest:{how:()=>spot('forest',3,9,'月光蘑菇'),reward:'150 枚金幣'},
+  eroute:{how:()=>spot('route',17,10,'珍珠貝殼'),reward:'150 枚金幣'},
+  eschool:{how:()=>spot('school',16,10,'星星獎章'),reward:'150 枚金幣'},
+  ea2:{how:()=>spot('a2',16,10,'發光花苞'),reward:'150 枚金幣'},
+  ea3:{how:()=>spot('a3',16,10,'備用電池'),reward:'150 枚金幣'},
+  ea4:{how:()=>spot('a4',16,10,'火種寶石'),reward:'150 枚金幣'},
+  ea5:{how:()=>spot('a5',16,10,'彩虹礦石'),reward:'150 枚金幣'},
+  ea6:{how:()=>spot('a6',16,10,'冰藍圍巾'),reward:'150 枚金幣'},
+  mine:{how:()=>spot('mine',8,3,'古老銘牌'),reward:'220 枚金幣'},
+  volcIn:{how:()=>spot('volcIn',12,5,'火山心焰'),reward:'300 枚金幣'},
+  iceCave:{how:()=>spot('iceCave',12,5,'冰窟月輪'),reward:'260 枚金幣'},
+  lab:{how:()=>spot('lab',12,5,'研究所主機'),reward:'320 枚金幣'},
+  ruins:{how:()=>spot('ruins',12,5,'古代星盤'),reward:'380 枚金幣'},
+  dreamSpace:{how:()=>spot('dreamSpace',12,5,'夢境核心'),reward:'420 枚金幣'},
+  undersea:{how:()=>spot('undersea',12,5,'海底古鐘'),reward:'460 枚金幣'},
+  forestDeep:{how:()=>'前往「'+MN('forestGrove')+'」擊敗森林秘境古王，再回來交任務。',reward:'440 枚金幣'}
+ };
+ const qState=id=>{const st=FL['q:'+id],q=QUESTS[id];if(st==='done')return'done';if(st==='active'){let ok=false;try{ok=!!(q&&q.done())}catch(e){}return ok?'ready':'active'}return'new'};
+ const LAB={done:['已完成',2],active:['進行中',3],ready:['可交付',G],new:['未接取',2]};
+ const wrap=(s,w,z)=>{ctx.font=z+'px '+FONT;const o=[];let c='';for(const ch of String(s)){if(ctx.measureText(c+ch).width>w){o.push(c);c=ch}else c+=ch}if(c)o.push(c);return o};
+ const ids=()=>Object.keys(QUESTS);
+ const npcOf=id=>NPCS.find(n=>n.q===id);
+ const prevQuestView=questView;
+ questView=function(){S.qi=0;S.qDetail=false;return prevQuestView()};
+ const prevDraw=drawView;
+ drawView=function(){
+  if(S.vk!=='quest'){prevDraw();return}
+  const L=ids(),n=L.length;S.qi=Math.min(S.qi||0,n-1);
+  R(0,0,160,144,0);box(2,2,156,140);
+  if(S.qDetail){
+   const id=L[S.qi],q=QUESTS[id],info=QINFO[id]||{},st=qState(id),lb=LAB[st];
+   T(q.title,9,7,3,9);
+   if(st==='ready')TC(lb[0],118,8,lb[1],8);else T(lb[0],118,8,lb[1],8);
+   let y=21;const line=(s,col)=>{for(const ln of wrap(s,142,7)){if(col)TC(ln,9,y,col,7);else T(ln,9,y,3,7);y+=9}y+=2};
+   const nb=npcOf(id);
+   line(`【任務人】${nb?MN(nb.m)+'（'+nb.x+','+nb.y+'）':'公告板'}`);
+   let goal='';try{goal=st==='done'?'已經完成，謝謝你的幫忙！':q.progress().replace(/^進度：/,'')}catch(e){}
+   line(`【目標】${goal}`);
+   if(st!=='done'){let h=info.how;try{if(typeof h==='function')h=h()}catch(e){h=''}line(`【怎麼做】${h||q.offer||'依任務人的說明完成。'}`)}
+   line(`【獎勵】${info.reward||'？'}`);
+   if(st==='ready')line('條件已達成！回去找任務人交任務吧。',G);
+   else if(st==='new')line('先去找任務人接取任務。');
+   T('←→切換任務　A／B返回',9,133,2,7);
+   return}
+  const per=5,page=Math.floor(S.qi/per),start=page*per;
+  T('支線任務',9,7,2,11);T(`${page+1}/${Math.ceil(n/per)}`,130,8,2,8);
+  for(let j=0;j<per&&start+j<n;j++){
+   const idx=start+j,id=L[idx],q=QUESTS[id],st=qState(id),lb=LAB[st],y=24+j*17;
+   if(idx===S.qi)R(6,y-2,148,15,1);
+   T((idx===S.qi?'▶ ':'　')+q.title,9,y,st==='done'?2:3,8);
+   if(st==='ready')TC(lb[0],112,y+1,lb[1],7);else T(lb[0],112,y+1,lb[1],7);
+  }
+  const nr=L.filter(id=>qState(id)==='ready').length;
+  if(nr)TC(`有 ${nr} 項任務可以交付！`,9,114,G,8);else T('在城鎮公告板接取任務',9,114,2,8);
+  T('↑↓選擇　A解說　←→換頁　B關閉',9,133,2,7);
+ };
+ const prevPress=press;
+ press=function(k){
+  if(S.mode==='view'&&S.vk==='quest'){
+   const n=ids().length,per=5,pages=Math.ceil(n/per);S.qi=S.qi||0;
+   if(S.qDetail){
+    if(k==='a'||k==='b')S.qDetail=false;
+    else if(k==='left'||k==='up')S.qi=(S.qi+n-1)%n;
+    else if(k==='right'||k==='down')S.qi=(S.qi+1)%n;
+   }else{
+    if(k==='up')S.qi=(S.qi+n-1)%n;
+    else if(k==='down')S.qi=(S.qi+1)%n;
+    else if(k==='left')S.qi=((Math.floor(S.qi/per)+pages-1)%pages)*per;
+    else if(k==='right')S.qi=((Math.floor(S.qi/per)+1)%pages)*per;
+    else if(k==='a')S.qDetail=true;
+    else if(k==='b'){S.qDetail=false;S.mode='event';S.vr()}
+   }
+   S.vi=Math.floor(S.qi/per);return}
+  prevPress(k)};
+})();
 
 MU.bind(document.getElementById('mu'));
 tick();
