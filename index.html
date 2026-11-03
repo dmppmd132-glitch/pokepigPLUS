@@ -51,7 +51,7 @@ const GYM=["HHHHHHHHHH","H........H","H........H","H........H","H........H","H..
 const MAPS={town:TOWN,route:ROUTE,gym:GYM};
 const WARP={'town,19,14':['route',1,6],'route,0,6':['town',18,14],'route,15,3':['gym',4,7],'gym,4,8':['route',15,4]};
 let MAP=TOWN,MW=20,MH=16,cur='town';
-function setMap(n){cur=n;FL['v'+n]=1;MAP=MAPS[n];MW=MAP[0].length;MH=MAP.length;P4.splice(0,4,...palOf(n))}
+function setMapBase(n){cur=n;FL['v'+n]=1;MAP=MAPS[n];MW=MAP[0].length;MH=MAP.length;P4.splice(0,4,...palOf(n))}
 const gen=(n,xs,last)=>{const r=[];for(let y=0;y<12;y++){let s='';for(let x=0;x<20;x++){const b=xs.find(a=>x>=a&&x<a+3)||(x>=8&&x<11?8:0);s+=(y%11===0||x%19===0)&&!(y===6&&(x===0||(x===19&&!last)))?'#':y===2&&b?'H':y===3&&b?(x===b+1?(b===8?'C':'G'):'H'):y>6&&(x*3+y*5+n*7)%9<3?'g':'.'}r.push(s)}return r};
 MAPS.a2=gen(2,[13]);MAPS.a3=gen(3,[13]);MAPS.a4=gen(4,[13]);MAPS.a5=gen(5,[13]);MAPS.a6=gen(6,[13]);MAPS.school=gen(7,[]).map(r=>r.replace(/g/g,'.'));
 ROUTE[2]=ROUTE[2].slice(0,6)+'HHH'+ROUTE[2].slice(9);ROUTE[3]=ROUTE[3].slice(0,6)+'HCH'+ROUTE[3].slice(9);
@@ -446,7 +446,7 @@ const oldUseLift=useLift;useLift=async function(key){const stops=LIFTS[key];if(!
 	}
 	 setupRandomHiddenRoads();
 function healAll(){party.forEach(m=>{statInit(m);m.hp=m.max;m.status='';m.maxpp=m.mv.map((mi,k)=>m.maxpp?.[k]??MOVES[mi]?.pp??10);m.pp=m.maxpp.slice();yuFix(m)});if(pig)pig.dh=pig.hp}
-async function center(h){
+async function centerBase(h){
  S.mode='event';await say(h?'豬媳媳：歡迎回家！':'豬豬中心：歡迎光臨！');healAll();await say('已經幫你的隊伍全部回復了體力與 PP！');
  for(;;){S.prompt='還需要\n什麼服務？';const c=await choose(['電腦','存檔','離開'],1,'right');if(c===0)await pc();else if(c===1)await say(save()?'冒險已經記錄下來了！':'無法存檔……');else break}
  S.mode='map';
@@ -652,7 +652,7 @@ async function craftMenu(){
 async function shopTalk(){S.mode='event';const I=[['素材強化',null,craftMenu],['普通飼料',15,()=>BAG.feed++],['高級飼料',80,()=>BAG.superFeed++],['補血藥',40,()=>BAG.heal=(BAG.heal||0)+1],['脫逃繩',70,()=>BAG.rope=(BAG.rope||0)+1],['避怪藥水100',60,()=>BAG.rep100++],['避怪藥水200',100,()=>BAG.rep200++],['避怪藥水400',180,()=>BAG.rep400++]];
  for(;;){S.prompt=`雜貨店\n金幣：${BAG.coins}\n補血藥回40`;const c=await choose([...I.map(x=>x[1]===null?x[0]:`${x[0]}　${x[1]}`),'離開'],1,'right',true);if(c<0||c===I.length)break;const it=I[c];if(it[1]===null){await it[2]();S.mode='event';continue}if(BAG.coins<it[1]){await say('金幣不夠！');continue}BAG.coins-=it[1];it[2]();await say('購買成功！')}S.mode='map'}
 async function questTalk(N){const q=QUESTS[N.q];S.mode='event';const key='q:'+N.q;if(!q){S.mode='map';return}if(!FL[key]){await say(q.offer);if(await choose(['接受任務','先等等'],1,'right')===0){FL[key]='active';await say('任務已加入！可以按 B 開啟任務查看進度。')}}else if(FL[key]==='active'){if(q.done()){FL[key]='done';await say(q.doneText);await q.give();await say('支線任務完成！')}else await say(q.progress())}else await say('這項任務已經完成了，謝謝你的幫忙！');S.mode='map'}
-async function talk(N){
+async function talkBase(N){
  S.mode='event';
  if(N.fn){await N.fn();S.mode='map';return}if(N.shop){await shopTalk();return}if(N.q){await questTalk(N);return}
  if(N.t&&!FL[N.id]){
@@ -671,9 +671,9 @@ async function learn(m){
 }
 /* ---------- dialog / menu ---------- */
 function wrap(t){ctx.font='10px '+FONT;const L=[];for(const part of t.split('\n')){let l='';for(const ch of part){if(ctx.measureText(l+ch).width>142){L.push(l);l=ch}else l+=ch}L.push(l)}return L}
-function say(t){const f=SFXR.find(x=>x[0].test(t));f&&MU.sfx(f[1]);return new Promise(r=>{S.msg={t,l:wrap(t),n:t.replace(/\n/g,'').length,shown:0};waitA=r})}
+function sayBase(t){const f=SFXR.find(x=>x[0].test(t));f&&MU.sfx(f[1]);return new Promise(r=>{S.msg={t,l:wrap(t),n:t.replace(/\n/g,'').length,shown:0};waitA=r})}
 function choose(o,c,boxType,cancel){return new Promise(r=>{S.menu={o,c,box:boxType,i:0,cancel,r}})}
-function press(k){
+function pressCore(k){
  if(S.mode==='evoChoice'){const q=S.evoChoice;if(!q)return;if(k==='left'||k==='right'){q.selected=q.stage===1?(q.selected===2?(k==='left'?0:1):1-q.selected):1-q.selected}if((k==='down'||k==='up')&&q.stage===1)q.selected=q.selected===2?0:2;if((k==='down'||k==='up')&&q.stage===2)q.selected=1-q.selected;if(k==='a')finishEvolutionChoice(q.stage===1?(q.selected===2?-1:q.selected):(q.selected===0?0:-1));if(k==='b')finishEvolutionChoice(-1);return}
  if(S.mode==='view'&&S.vk==='team'&&k==='a'){const m=[...party,...pcBox][S.vi];if(m?.evoPending){runPendingEvolution(m);return}}
  if(S.mode==='title'){if(k==='a')start();return}
@@ -693,12 +693,116 @@ async function start(){if(has()){S.mode='event';S.prompt='要繼續\n冒險嗎�
  S.mode='map';
 }
 function walk(x,y){if(!(x>=0&&y>=0&&x<MW&&y<MH))return false;const tile=MAP[y][x];if((surf?'#HLrT':'#HLrTw').includes(tile)||npcAt(x,y))return false;return true}
-async function arrive(){
- if(S.mode!=='map')return;advanceWorld();party.forEach(m=>{statInit(m);m.love=Math.min(100,(m.love||0)+1)});let wk=WARP[`${cur},${Pl.x},${Pl.y}`];if(cur==='underseaDeep'&&Pl.x===10&&Pl.y===1)wk=[FL.seaRoute?'trenchWest':'trenchEast',1,1];if(cur==='forestDeep'&&Pl.x===10&&Pl.y===1)wk=[FL.forestRoute?'forestMoss':'forestCanopy',1,1];const c=MAP[Pl.y][Pl.x];if(wk){const from=cur;setMap(wk[0]);Pl.x=wk[1];Pl.y=wk[2];if(from==='underseaDeep'||from==='forestDeep')await say(from==='underseaDeep'?'海流把你捲向隨機海溝支路！':'樹根裂開，露出新的森林秘境分區！');return}if(surf&&c!=='w')surf=false;if(BAG.repel>0)BAG.repel--;
- if(c==='B'){await mapBoss();return}if(c==='R'){await switchCart(`${cur}:${Pl.x}:${Pl.y}`);return}if(c==='S'){await switchPuzzle(`${cur}:${Pl.x}:${Pl.y}`);return}if(c==='Z'){await timeGate(`${cur}:${Pl.x}:${Pl.y}`);return}if(c==='M'){await multiPuzzle(`${cur}:${Pl.x}:${Pl.y}`);return}if(c==='K'){await rideCart(`${cur}:${Pl.x}:${Pl.y}`);return}if(c==='U'){await useLift(`${cur}:${Pl.x}:${Pl.y}`);return}if(c==='I'){const it=ITEM_DATA[`${cur}:${Pl.x}:${Pl.y}`];if(it&&!FL['item:'+cur+':'+Pl.x+':'+Pl.y]){FL['item:'+cur+':'+Pl.x+':'+Pl.y]=1;it.give();await say(`找到${it.name}！`);MAP[Pl.y]=MAP[Pl.y].slice(0,Pl.x)+'.'+MAP[Pl.y].slice(Pl.x+1);return}}if(c==='q'){const h=HIDDEN_ROADS[`${cur}:${Pl.x}:${Pl.y}`];if(h&&!FL['hidden:'+cur]){h.reveal();await say(`發現隱藏道路「${h.name}」！`);return}}if(c==='P'){await rockPuzzle(`${cur}:${Pl.x}:${Pl.y}`);return}if(c==='E'){const sk=`secret:${cur}:${Pl.x}:${Pl.y}`,q=SECRETS[sk];if(q&&!FL[sk]){S.mode='event';for(const line of q.lines)await say(line);FL[sk]=1;if(q.reward==='maxhp'){pig.max+=6;pig.hp=pig.max;await say('小豬的最大體力提升 6 點！')}if(q.reward==='exp'){pig.exp+=12;await say('小豬獲得了 12 點探索經驗！')}if(q.reward==='heal'){party.forEach(m=>m.hp=m.max);await say('隊伍全員恢復體力！')}if(q.reward==='rare'){FL.rare=1;await say('稀有怪物的出現率提高了！')}if(q.reward==='minehp'){party.forEach(m=>{m.max+=4;m.hp=m.max});await say('隊伍全員最大體力提升 4 點！')}if(q.reward==='volcbuff'){FL.volcBuff=1;await say('火屬性招式威力提升了！')}if(q.reward==='icebuff'){FL.iceBuff=1;party.forEach(m=>m.hp=m.max);await say('冰屬性招式威力提升，隊伍也恢復體力！')}if(q.reward==='labrare'){FL.labPower=1;FL.rare=1;await say('研究所資料解鎖，稀有怪物出現率提升了！')}if(q.reward==='ruinsbuff'){party.forEach(m=>{m.def=(m.def||8)+2;m.spd=(m.spd||8)+2});await say('隊伍防禦與特防提升了！')}if(q.reward==='dreambuff'){FL.dreamBuff=1;await say('光與暗屬性招式威力提升了！')}if(q.reward==='seabuff'){FL.seaBuff=1;party.forEach(m=>m.hp=m.max);await say('水屬性招式威力提升，隊伍恢復體力！')}S.mode='map';return}}if(c==='h'||c==='C'){center(c==='h');return}if(c==='X'&&hasLegendLeft()){legend2();return}if(0){S.mode='event';await say('這是豬窩小屋。豬媽媽在等你回家。');party.forEach(m=>m.hp=m.max);await say('小豬睡了一覺，體力全部恢復了！');S.prompt='要記錄\n冒險嗎？';if(await choose(['存檔','不用'],1,'right')===0)await say(save()?'冒險已經記錄下來了！':'無法存檔……');S.mode='map'}
- if(await randomExploreEvent())return;
- else if(BAG.repel<=0&&(c==='g'||c==='w')&&Math.random()<((c==='.'?.07:.14)*(WORLD.weather==='月夜'?.85:WORLD.weather==='小雨'&&c==='w'?1.45:WORLD.weather==='微雪'&&cur==='iceCave'?1.35:WORLD.weather==='花粉風'&&c==='g'?1.55:WORLD.weather==='潮汐月夜'&&c==='w'?1.7:WORLD.weather==='流星雨'?1.35:WORLD.weather==='熱浪'&&cur.startsWith('volc')?1.5:1)*((WORLD.time>=18||WORLD.time<6)?1.2:1)))battle(0,c==='w');
+/* ---------- modular arrival pipeline ---------- */
+const ARRIVE_BEFORE=[];
+const ARRIVE_TILE_HANDLERS=[];
+const ARRIVE_AFTER=[];
+const addArriveBefore=fn=>ARRIVE_BEFORE.push(fn);
+const addArriveTile=fn=>ARRIVE_TILE_HANDLERS.push(fn);
+const addArriveAfter=fn=>ARRIVE_AFTER.push(fn);
+async function runArriveHandlers(list,ctx){
+ for(const handler of list){
+  const result=await handler(ctx);
+  if(result===false)return false;
+ }
+ return true;
 }
+async function handleArrivalTile(ctx){
+ for(const handler of ARRIVE_TILE_HANDLERS){
+  if(await handler(ctx))return true;
+ }
+ return false;
+}
+async function arriveCore(){
+ if(S.mode!=='map')return;
+ advanceWorld();
+ party.forEach(m=>{statInit(m);m.love=Math.min(100,(m.love||0)+1)});
+ const ctx={map:cur,x:Pl.x,y:Pl.y,tile:MAP[Pl.y][Pl.x],key:`${cur}:${Pl.x}:${Pl.y}`};
+ if(await handleArrivalTile(ctx))return;
+ if(await randomExploreEvent())return;
+ const encounterRate=(ctx.tile==='g'||ctx.tile==='w')
+  ?((ctx.tile==='.'?.07:.14)
+   *(WORLD.weather==='月夜'?.85
+    :WORLD.weather==='小雨'&&ctx.tile==='w'?1.45
+    :WORLD.weather==='微雪'&&cur==='iceCave'?1.35
+    :WORLD.weather==='花粉風'&&ctx.tile==='g'?1.55
+    :WORLD.weather==='潮汐月夜'&&ctx.tile==='w'?1.7
+    :WORLD.weather==='流星雨'?1.35
+    :WORLD.weather==='熱浪'&&cur.startsWith('volc')?1.5:1)
+   *((WORLD.time>=18||WORLD.time<6)?1.2:1))
+  :0;
+ if(BAG.repel<=0&&encounterRate>0&&Math.random()<encounterRate)await battle(0,ctx.tile==='w');
+}
+
+addArriveTile(async ctx=>{
+ let warp=WARP[`${ctx.map},${ctx.x},${ctx.y}`];
+ if(ctx.map==='underseaDeep'&&ctx.x===10&&ctx.y===1)warp=[FL.seaRoute?'trenchWest':'trenchEast',1,1];
+ if(ctx.map==='forestDeep'&&ctx.x===10&&ctx.y===1)warp=[FL.forestRoute?'forestMoss':'forestCanopy',1,1];
+ if(!warp)return false;
+ const from=cur;setMap(warp[0]);Pl.x=warp[1];Pl.y=warp[2];
+ if(from==='underseaDeep'||from==='forestDeep')await say(from==='underseaDeep'?'海流把你捲向隨機海溝支路！':'樹根裂開，露出新的森林秘境分區！');
+ return true;
+});
+
+addArriveTile(async ctx=>{
+ if(surf&&ctx.tile!=='w')surf=false;
+ if(BAG.repel>0)BAG.repel--;
+ const key=ctx.key,c=ctx.tile;
+ if(c==='B'){await mapBoss();return true}
+ if(c==='R'){await switchCart(key);return true}
+ if(c==='S'){await switchPuzzle(key);return true}
+ if(c==='Z'){await timeGate(key);return true}
+ if(c==='M'){await multiPuzzle(key);return true}
+ if(c==='K'){await rideCart(key);return true}
+ if(c==='U'){await useLift(key);return true}
+ if(c==='I'){
+  const it=ITEM_DATA[key];
+  if(it&&!FL['item:'+key]){FL['item:'+key]=1;it.give();await say(`找到${it.name}！`);MAP[Pl.y]=MAP[Pl.y].slice(0,Pl.x)+'.'+MAP[Pl.y].slice(Pl.x+1);return true}
+ }
+ if(c==='q'){
+  const h=HIDDEN_ROADS[key];
+  if(h&&!FL['hidden:'+ctx.map]){h.reveal();await say(`發現隱藏道路「${h.name}」！`);return true}
+ }
+ if(c==='P'){await rockPuzzle(key);return true}
+ return false;
+});
+
+const SECRET_REWARDS={
+ maxhp:async()=>{pig.max+=6;pig.hp=pig.max;await say('小豬的最大體力提升 6 點！')},
+ exp:async()=>{pig.exp+=12;await say('小豬獲得了 12 點探索經驗！')},
+ heal:async()=>{party.forEach(m=>m.hp=m.max);await say('隊伍全員恢復體力！')},
+ rare:async()=>{FL.rare=1;await say('稀有怪物的出現率提高了！')},
+ minehp:async()=>{party.forEach(m=>{m.max+=4;m.hp=m.max});await say('隊伍全員最大體力提升 4 點！')},
+ volcbuff:async()=>{FL.volcBuff=1;await say('火屬性招式威力提升了！')},
+ icebuff:async()=>{FL.iceBuff=1;party.forEach(m=>m.hp=m.max);await say('冰屬性招式威力提升，隊伍也恢復體力！')},
+ labrare:async()=>{FL.labPower=1;FL.rare=1;await say('研究所資料解鎖，稀有怪物出現率提升了！')},
+ ruinsbuff:async()=>{party.forEach(m=>{m.def=(m.def||8)+2;m.spd=(m.spd||8)+2});await say('隊伍防禦與特防提升了！')},
+ dreambuff:async()=>{FL.dreamBuff=1;await say('光與暗屬性招式威力提升了！')},
+ seabuff:async()=>{FL.seaBuff=1;party.forEach(m=>m.hp=m.max);await say('水屬性招式威力提升，隊伍恢復體力！')}
+};
+addArriveTile(async ctx=>{
+ if(ctx.tile==='E'){
+  const q=SECRETS[`secret:${ctx.map}:${ctx.x}:${ctx.y}`];
+  if(q&&!FL[`secret:${ctx.map}:${ctx.x}:${ctx.y}`]){
+   S.mode='event';for(const line of q.lines)await say(line);
+   const flag=`secret:${ctx.map}:${ctx.x}:${ctx.y}`;FL[flag]=1;
+   if(SECRET_REWARDS[q.reward])await SECRET_REWARDS[q.reward]();
+   S.mode='map';return true;
+  }
+ }
+ if(ctx.tile==='h'||ctx.tile==='C'){center(ctx.tile==='h');return true}
+ if(ctx.tile==='X'&&hasLegendLeft()){legend2();return true}
+ return false;
+});
+
+async function arrive(){
+ if(S.mode!=='map')return;
+ const ctx={map:cur,x:Pl.x,y:Pl.y,tile:MAP[Pl.y]?.[Pl.x],key:`${cur}:${Pl.x}:${Pl.y}`};
+ if(await runArriveHandlers(ARRIVE_BEFORE,ctx)===false)return;
+ await arriveCore();
+ await runArriveHandlers(ARRIVE_AFTER,ctx);
+}
+
 const wildPool0=()=>{const base=cur==='sea'?[ENEMIES[3],ENEMIES[6],ENEMIES[8],ENEMIES[10]]:cur==='volc'?[ENEMIES[4],ENEMIES[5],ENEMIES[9],ENEMIES[8]]:cur==='maze'?[ENEMIES[0],ENEMIES[8],ENEMIES[9],ENEMIES[11]]:cur==='a3'?[ENEMIES[2],ENEMIES[6],ENEMIES[10],ENEMIES[11]]:(FL.rare?[...ENEMIES.slice(0,6),ENEMIES[9],ENEMIES[11]]:ENEMIES.slice(0,6));return ['forest','forestDeep','forestGrove','forestCanopy','forestMoss'].includes(cur)&&typeof FOREST_RELIC_IDS!=='undefined'?[...base,...FOREST_RELIC_IDS.map(i=>ENEMIES[i])]:base};
 const ALLN=[...Array(49).keys()].map(i=>i+12).concat(NEWN.map((_,i)=>65+i)),AOFF={forest:0,route:8,school:0,a2:16,a3:26,a4:36,a5:46,a6:56,sea:62,volc:68,maze:71};
 const wildPool=()=>{if(cur.startsWith('LL')){const n=+cur.match(/^LL(\d+)/)[1],id=STORY_LEGENDS[n%STORY_LEGENDS.length];return [...wildPool0(),ENEMIES[id],ENEMIES[(id+1)%ENEMIES.length]]}if(cur==='mine')return mineWild();if(cur==='volcIn')return volcInWild();if(cur==='iceCave')return iceWild();if(cur==='lab')return labWild();if(cur==='ruins')return ruinsWild();if(cur==='dreamSpace')return dreamWild();if(cur==='undersea'||cur==='underseaDeep'||cur==='trench')return underseaWild();if(cur==='forestDeep'||cur==='forestGrove')return wildPool0();if(cur==='ruins2')return ruinsWild();if(cur==='dreamBranch'||cur==='dreamCore')return dreamWild();if(cur==='labUnderground')return labWild();const o=AOFF[cur]??0,rare=FL.rare||o>50;return [...(cur==='route'?[ENEMIES[3],ENEMIES[6]]:wildPool0()),...ALLN.slice(o,o+18).filter(i=>i<95||rare).map(i=>ENEMIES[i])]};
@@ -907,7 +1011,7 @@ function drawLegendFx(){
 }
 
 /* ---------- drawing ---------- */
-function tile(c,x,y,sx,sy){
+function drawBaseTile(c,x,y,sx,sy){
  if(c==='B'){R(sx,sy,16,16,3);R(sx+4,sy+3,8,10,2);R(sx+2,sy+6,12,2,1);return}if(c==='R'){R(sx,sy,16,16,1);R(sx+2,sy+6,12,3,3);R(sx+7,sy+2,2,12,3);return}if(c==='S'){R(sx,sy,16,16,2);R(sx+3,sy+5,10,6,3);R(sx+7,sy+2,2,12,1);return}if(c==='M'){R(sx,sy,16,16,1);R(sx+2,sy+2,5,5,3);R(sx+9,sy+9,5,5,3);return}if(c==='Z'){R(sx,sy,16,16,3);R(sx+4,sy+4,8,8,1);return}if(c==='K'){R(sx,sy,16,16,1);R(sx+2,sy+5,12,5,3);R(sx+3,sy+3,3,3,2);R(sx+10,sy+3,3,3,2);return}if(c==='U'){R(sx,sy,16,16,2);R(sx+3,sy+2,10,12,3);R(sx+6,sy+4,4,8,1);return}if(c==='P'){R(sx,sy,16,16,2);R(sx+3,sy+3,10,10,3);R(sx+6,sy+6,4,4,1);return}if(c==='I'){R(sx,sy,16,16,1);R(sx+3,sy+4,10,8,3);R(sx+5,sy+2,6,3,2);return}if(c==='q'){R(sx,sy,16,16,0);R(sx+4,sy+7,8,2,2);return}if(c==='S'){R(sx,sy,16,16,3);R(sx+1,sy+1,14,14,2);R(sx+2,sy+9,12,7,3);T('店',sx+3,sy+1,0,11);return}
  if(c==='T'){R(sx,sy,16,16,3);R(sx+1,sy+1,14,14,1);T('商店',sx+1,sy+4,3,7);return}
  if(c==='f'){R(sx,sy,16,16,0);R(sx+6,sy+6,4,4,2);R(sx+7,sy+3,2,3,1);R(sx+7,sy+10,2,3,1);R(sx+3,sy+7,3,2,1);R(sx+10,sy+7,3,2,1);R(sx+7,sy+7,2,2,3);return}
@@ -925,7 +1029,7 @@ function tile(c,x,y,sx,sy){
  R(sx,sy,16,16,0);if(c==='X'&&!FL.leg){ell(sx+8,sy+8,5,6,2);ell(sx+8,sy+9,3,4,1)}if(c==='V'){R(sx+2,sy+3,12,12,3);R(sx+4,sy+6,8,9,2)}if(c==='L'){R(sx,sy,16,16,2);R(sx+3,sy+4,5,2,1);R(sx+9,sy+10,5,2,1)}if((x*7+y*3)%5===0){R(sx+4,sy+5,1,1,1);R(sx+11,sy+11,1,1,1)}
 }
 function drawWeatherFx(){const night=WORLD.time>=19||WORLD.time<6;ctx.save();if(night){ctx.fillStyle='rgba(20,18,70,.28)';ctx.fillRect(0,0,160,144);ctx.fillStyle='rgba(230,235,255,.7)';for(let i=0;i<8;i++){const x=(i*29+S.t)%160,y=(i*17)%80;ctx.fillRect(x,y,1,1)}}else if(WORLD.time>=17&&WORLD.time<19){ctx.fillStyle='rgba(255,150,80,.16)';ctx.fillRect(0,0,160,144)}if(WORLD.weather==='小雨'){ctx.strokeStyle='rgba(100,190,255,.72)';ctx.lineWidth=1;for(let i=0;i<18;i++){const x=(i*17+S.t*2)%160,y=(i*11+S.t*3)%144;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-2,y+6);ctx.stroke()}}if(WORLD.weather==='微雪'){ctx.fillStyle='rgba(255,255,255,.9)';for(let i=0;i<20;i++){const x=(i*23+S.t)%160,y=(i*13+S.t/2)%144;ctx.fillRect(x,y,2,2)}}if(WORLD.weather==='雷雨'){ctx.strokeStyle='rgba(80,150,255,.75)';for(let i=0;i<16;i++){const x=(i*19+S.t*2)%160,y=(i*9+S.t*3)%144;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-3,y+8);ctx.stroke()}if((S.t>>4)%20===0){ctx.fillStyle='rgba(255,255,255,.35)';ctx.fillRect(0,0,160,144)}}if(WORLD.weather==='濃霧'){ctx.fillStyle='rgba(220,230,235,.34)';ctx.fillRect(0,0,160,144)}if(WORLD.weather==='沙塵暴'){ctx.fillStyle='rgba(210,170,90,.45)';ctx.fillRect(0,0,160,144);ctx.fillStyle='rgba(245,220,150,.7)';for(let i=0;i<16;i++)ctx.fillRect((i*17+S.t*2)%160,(i*11)%144,3,1)}if(WORLD.weather==='花粉風'){ctx.fillStyle='rgba(190,230,105,.8)';for(let i=0;i<22;i++){const x=(i*19+S.t*1.4)%160,y=(i*13+S.t*.7)%144;ctx.fillRect(x,y,2,2)}ctx.fillStyle='rgba(180,220,100,.12)';ctx.fillRect(0,0,160,144)}if(WORLD.weather==='潮汐月夜'){ctx.fillStyle='rgba(70,180,220,.16)';ctx.fillRect(0,0,160,144);ctx.strokeStyle='rgba(120,230,255,.7)';for(let i=0;i<5;i++){ctx.beginPath();ctx.arc(20+i*34,112-(S.t%12),12,Math.PI,0);ctx.stroke()}}if(WORLD.weather==='流星雨'){ctx.strokeStyle='rgba(255,240,170,.9)';for(let i=0;i<10;i++){const x=(i*31+S.t*2)%180-10,y=(i*17+S.t)%90;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-6,y+7);ctx.stroke()}}if(WORLD.weather==='熱浪'){ctx.fillStyle='rgba(255,130,50,.16)';ctx.fillRect(0,0,160,144);ctx.strokeStyle='rgba(255,210,100,.45)';for(let i=0;i<7;i++){const x=i*27+(S.t%10);ctx.beginPath();ctx.moveTo(x,120);ctx.quadraticCurveTo(x+6,110,x,100);ctx.stroke()}}ctx.restore()}
-function drawMap(){
+function drawBaseMap(){
  const pr=Math.round(Pl.prog),px=Pl.x*16+(Pl.mv?D[Pl.dir][0]*pr:0),py=Pl.y*16+(Pl.mv?D[Pl.dir][1]*pr:0);
  const cx=Math.max(0,Math.min(MW*16-160,px-72)),cy=Math.max(0,Math.min(MH*16-132,py-58));
  ctx.save();ctx.translate(0,12);
@@ -954,7 +1058,7 @@ function drawTitle(){
  pigBig(80,88);
  if(S.t>>5&1)return;ctx.font='10px '+FONT;w=ctx.measureText('按 A 開始').width;T('按 A 開始',80-w/2,122,3);
 }
-function drawUI(){
+function drawUIBase(){
  if(S.msg){
   const m=S.msg;box(2,98,156,44);let left=m.shown|0;
   m.l.slice(0,3).forEach((s,i)=>{T(s.slice(0,left),8,104+i*13);left-=s.length});
@@ -965,7 +1069,7 @@ function drawUI(){
   else m.o.forEach((o,i)=>{const z=m.o.length>=4?8:10,x=8+(i%2)*78,y=103+(i/2|0)*(m.o.length>4?14:16),mark=m.i===i?'▶':'　';T(fitText(mark+o,74,z),x,y,3,z)});
  }
 }
-function draw(){
+function drawBase(){
  ctx.setTransform(3,0,0,3,0,0);
  if(S.mode==='evoChoice'){drawEvolutionChoice();return}
  if(S.mode==='evolution'){drawEvolution();return}
@@ -1075,86 +1179,9 @@ function findSpecialDoor(m){
  }
  return null;
 }
-const _arriveBeforeSpecialChoice = arrive;
-arrive = async function(){
- const pre={m:cur,x:Pl.x,y:Pl.y,bx:Pl.x-D[Pl.dir][0],by:Pl.y-D[Pl.dir][1]};
- // Ask only when going from an ordinary map into a special area (not special -> special).
- if(S.mode==='map' && !specialEntryPending){
-  const target = WARP[`${cur},${Pl.x},${Pl.y}`];
-  if(target && isSpecial(target[0]) && !isSpecial(cur)){
-   S.mode='event';
-   await say(`前方是特殊地形「${(typeof NAMES!=='undefined'&&NAMES[target[0]])||target[0]}」，裡面可能有稀有怪物。是否進入？（進入後按 B 可直接回到外面）`);
-   S.prompt='是否進入？';
-   const answer=await choose(['進入','暫不進入'],1,'right',true);
-   if(answer!==0){
-    // Step off the door tile so walking back onto it asks again.
-    placeBesideDoor(pre.x,pre.y,pre.bx,pre.by);
-    S.mode='map';return;
-   }
-   specialReturn={m:pre.m,dx:pre.x,dy:pre.y,bx:pre.bx,by:pre.by};
-   specialEntryPending=true;
-   FL['entered:'+target[0]]=1;
-   S.mode='map';
-  }
- }
- specialEntryPending=false;
- const oldMap=cur;
- await _arriveBeforeSpecialChoice();
- if(cur!==oldMap){
-  if(!isSpecial(cur)) specialReturn=null;                       // walked out normally
-  else if(!isSpecial(oldMap) && !specialReturn)                 // entered without the prompt
-   specialReturn={m:oldMap,dx:pre.x,dy:pre.y,bx:pre.bx,by:pre.by};
-  // special -> special: keep the original outer return point
- }
-};
-
 // B now cancels; X opens the former B menu; Y opens a compact map screen.
 // In a special area, B returns to the map from which it was entered.
-const _pressBeforeXY = press;
-press = function(k){
- if(k==='b' && S.mode==='map' && !S.msg && !S.menu && isSpecial(cur)){
-  const back=specialReturn||findSpecialDoor(cur);
-  if(!back){say('找不到入口記錄，請走向地圖上的出口離開。');return}
-  specialReturn=null; surf=false; bExitHint=true;
-  setMap(back.m); placeBesideDoor(back.dx,back.dy,back.bx,back.by);
-  say('已離開特殊地形，回到外面了。');
-  return;
- }
- if(k==='y' && S.mode==='map' && !S.msg && !S.menu){
-  S.mode='worldmap'; return;
- }
- if(k==='y' && S.mode==='worldmap'){S.mode='map';return}
- if(k==='x' && S.mode==='map' && !S.msg && !S.menu){field();return}
- if(k==='b' && S.mode==='map' && !S.msg && !S.menu){if(bExitHint){bExitHint=false;say('你已經在外面了。B 只用來離開特殊地形；X 開選單，Y 看地圖。')}return}
- if(S.mode==='worldmap'){
-  if(k==='b'||k==='x'||k==='a'){S.mode='map';return}
-  if(k==='left'||k==='right'||k==='up'||k==='down')return;
- }
- _pressBeforeXY(k);
-};
-
 // Draw a simple region overview for the new Y button.
-const _drawBeforeWorldMap=draw;
-draw=function(){
- if(S.mode==='worldmap'){
-  ctx.setTransform(3,0,0,3,0,0);
-  R(0,0,160,144,0); box(2,2,156,140);
-  T('世界地圖',10,8,2,12);
-  const regions=[
-   ['豬豬鎮','town'],['月影森林','forest'],['藍濱水族城','route'],
-   ['星學堂','school'],['花語城','a2'],['雷鳴城','a3'],
-   ['烈焰城','a4'],['礦石城','a5'],['冰晶城','a6']
-  ];
-  regions.forEach((r,i)=>{
-   const x=10+(i%2)*75,y=28+Math.floor(i/2)*19;
-   T((cur===r[1]?'▶ ':'　')+r[0],x,y,cur===r[1]?1:3,8);
-  });
-  T('Y／B／X／A：返回遊戲',10,128,2,8);
-  return;
- }
- _drawBeforeWorldMap();
-};
-
 // Replace repeated town-shop NPCs with exactly one shop per town, keeping one shop
 // landmark/interaction in each settlement.
 for(const townId of ['town','route','school','a2','a3','a4','a5','a6']){
@@ -1172,25 +1199,6 @@ addShopLandmark('route',6,5);
 for(const m of ['school','a2','a3','a4','a5','a6']) addShopLandmark(m,5,5);
 
 // Make shop and service buildings visually distinct on the map.
-const _tileBeforeLandmarks=tile;
-tile=function(c,x,y,sx,sy){
- if(c==='S'){R(sx,sy,16,16,3);R(sx+1,sy+1,14,14,2);return}
- if(c==='T'){
-  R(sx,sy,16,16,3);R(sx+1,sy+1,14,14,2);
-  T('SHOP',sx+1,sy+4,0,6);return;
- }
- if(c==='C'||c==='h'){
-  R(sx,sy,16,16,1);R(sx+2,sy+2,12,12,0);
-  return;
- }
- if(c==='G'){
-  const gym=GYMS.find(g=>g.m===cur),type=gym?ENEMIES[gym.s]?.t:'道';
-  R(sx,sy,16,16,3);R(sx+1,sy+1,14,14,1);
-  T(type||'道',sx+4,sy+2,0,10);return;
- }
- _tileBeforeLandmarks(c,x,y,sx,sy);
-};
-
 // The four requested puzzle activities replace the old push-rock minigame.
 // They are turn-based so they work with both keyboard and touch controls.
 rockPuzzle = async function(key){
@@ -1336,30 +1344,6 @@ WARP['school,11,3']=['schoolInterior',6,9];
 WARP['schoolInterior,6,10']=['school',11,4];
 NPCS.push(mk('schoolInterior',6,2,3,'school_teacher',['講師：歡迎來到星學堂！今天要學習屬性相剋與迷宮探索。','記得依照怪獸屬性選擇合適的隊伍！']));
 NPCS.push(mk('schoolInterior',9,7,1,'school_student',['學員：我正在上課，老師講得好清楚！']));
-const _tileBeforeSchool=tile;
-tile=function(c,x,y,sx,sy){
- if(cur==='schoolInterior'&&c==='q'){R(sx,sy,16,16,3);R(sx+1,sy+1,14,8,2);R(sx+3,sy+3,10,1,0);T('星學堂',sx+3,sy+4,0,7);return}
- if(cur==='schoolInterior'&&c==='p'){R(sx,sy,16,16,1);R(sx+2,sy+2,12,7,3);R(sx+3,sy+3,10,5,2);return}
- if(cur==='schoolInterior'&&c==='k'){R(sx,sy,16,16,1);R(sx+2,sy+3,12,8,3);R(sx+3,sy+4,10,6,2);R(sx+6,sy+11,4,3,3);return}
- if(c==='D'){R(sx,sy,16,16,1);R(sx+3,sy+2,10,14,3);R(sx+4,sy+3,8,13,2);R(sx+7,sy+8,2,2,0);return}
- if(c==='~'){R(sx,sy,16,16,1);R(sx+2,sy+4,7,2,2);R(sx+7,sy+10,7,2,2);return}
- if(c==='^'){R(sx,sy,16,16,1);R(sx+2,sy+10,12,4,3);R(sx+5,sy+5,3,6,2);R(sx+10,sy+3,3,8,3);return}
- if(c==='*'){R(sx,sy,16,16,1);T('✦',sx+4,sy+2,3,10);return}
- if(c==='+'){R(sx,sy,16,16,1);R(sx+7,sy+3,2,10,3);R(sx+3,sy+7,10,2,3);return}
- if(c==='o'){R(sx,sy,16,16,1);ell(sx+8,sy+8,5,5,3);ell(sx+8,sy+8,2,2,0);return}
- _tileBeforeSchool(c,x,y,sx,sy);
-};
-const _drawMapBeforeClassroom=drawMap;
-drawMap=function(){
- _drawMapBeforeClassroom();
- if(cur==='schoolInterior'){
-  /* Blackboard, podium, and individual desks are classroom furniture. */
-  R(39,17,82,13,3);R(42,19,76,8,0);T('星學堂｜屬性課程',48,20,2,7);
-  R(72,48,16,10,3);R(74,49,12,7,2);
-  [[48,83],[96,83]].forEach(([x,y])=>{R(x,y,18,10,3);R(x+2,y+2,14,6,2);R(x+3,y+10,3,5,3);R(x+12,y+10,3,5,3)});
- }
-};
-
 /* Type-themed legendary labyrinths: every rare lair is a maze with a clear route to its guardian. */
 const TYPE_PALETTES={
  '水':['#dffaff','#80d9e8','#258ba9','#103e59'],
@@ -1414,28 +1398,7 @@ for(let i=0;i<19;i++){
   WARP[`${lid},7,12`]=[source,x,y+1];
  }
 }
-const _tileBeforeLairMarker=tile;
-tile=function(c,x,y,sx,sy){
- if(cur.startsWith('L')&&c==='.'){R(sx,sy,16,16,1);if((x+y)%5===0)R(sx+7,sy+7,2,2,2);return}
- if(cur.startsWith('L')&&c==='~'){R(sx,sy,16,16,1);R(sx+2,sy+4,7,2,2);R(sx+7,sy+10,7,2,2);return}
- if(cur.startsWith('L')&&c==='^'){R(sx,sy,16,16,1);R(sx+2,sy+10,12,4,3);R(sx+5,sy+5,3,6,2);R(sx+10,sy+3,3,8,3);return}
- if(cur.startsWith('L')&&c==='*'){R(sx,sy,16,16,1);T('✦',sx+4,sy+2,3,10);return}
- if(cur.startsWith('L')&&c==='+'){R(sx,sy,16,16,1);R(sx+7,sy+3,2,10,3);R(sx+3,sy+7,10,2,3);return}
- if(cur.startsWith('L')&&c==='o'){R(sx,sy,16,16,1);ell(sx+8,sy+8,5,5,3);ell(sx+8,sy+8,2,2,0);return}
- _tileBeforeLairMarker(c,x,y,sx,sy);
- /* Overlay the shop sign on the top-right roof tile of each shop building. */
- /* 房屋標誌已移除；不再於任何地圖磚塊上疊加圖示。 */
- /* 不繪製學堂或其他房屋右上角標誌。 */
-};
-
 /* Outside NPCs are never vendors. Only the dedicated indoor shopkeeper can sell. */
-const _talkBeforeIndoorShop=talk;
-talk=async function(N){
- if(N.shop&&cur.startsWith('shop_'))return _talkBeforeIndoorShop(N);
- if(N.shop){S.mode='event';await say('商店位於獨立建築內，請先進入商店再購買商品。');S.mode='map';return}
- return _talkBeforeIndoorShop(N);
-};
-
 // Keyboard mapping: X is the old menu key, B is cancel, Y is map.
 
 /* ---------- input ---------- */
@@ -1448,60 +1411,7 @@ document.querySelectorAll('#pad button').forEach(b=>{const k=b.dataset.k;
 });
 
 /* ===== Final polish: battle move panel, random minigames, clean building icons, dex list ===== */
-const _drawUIForMovePanel=drawUI;
-drawUI=function(){
- if(S.mode==='battle'&&S.menu&&B&&B.moveMenu){
-  const m=S.menu;box(2,96,156,46);
-  T('選擇招式',8,99,2,8);
-  m.o.forEach((o,i)=>{
-   const col=i%2,row=Math.floor(i/2),x=8+col*76,y=112+row*14;
-   const label=String(o).replace(/\s*PP\s*/,'　PP');
-   T(fitText((m.i===i?'▶':'')+label,72,7),x,y,3,7);
-  });
-  return;
- }
- _drawUIForMovePanel();
-};
-
 /* The dex opens as a compact index. A selects a creature to open its original detail card. */
-const _drawViewBeforeDexList=drawView;
-drawView=function(){
- if(S.vk!=='dex'||S.dexDetail){_drawViewBeforeDexList();return}
- R(0,0,160,144,0);box(2,2,156,140);
- const total=ENEMIES.length,per=8,page=Math.floor(S.vi/per),start=page*per;
- T(`怪獸圖鑑 ${start+1}-${Math.min(total,start+per)}/${total}`,9,7,2,9);
- T(`已捕獲 ${dex.size}/${total}`,9,17,2,8);
- for(let j=0;j<per&&start+j<total;j++){
-  const idx=start+j,e=ENEMIES[idx],seen=dex.has(e.n)||!!FL['s'+idx];
-  const y=30+j*12;
-  if(idx===S.vi)R(6,y-1,148,11,1);
-  T(`${String(idx+1).padStart(3,'0')}  ${seen?e.n:'？？？？'}`,10,y,idx===S.vi?0:3,7);
-  T(dex.has(e.n)?'✓':seen?'○':'－',137,y,2,7);
- }
- T('↑↓選擇　A查看　B關閉',9,135,2,7);
-};
-const _pressBeforeDexList=press;
-press=function(k){
- if(S.mode==='view'&&S.vk==='dex'){
-  const total=ENEMIES.length,per=8;
-  if(S.dexDetail){
-   if(k==='a'){S.dexDetail=false;return}
-   if(k==='b'){S.dexDetail=false;S.mode='event';S.vr();return}
-   if(k==='left')S.vi=(S.vi+total-1)%total;
-   if(k==='right')S.vi=(S.vi+1)%total;
-   return;
-  }
-  if(k==='up')S.vi=(S.vi+total-1)%total;
-  if(k==='down')S.vi=(S.vi+1)%total;
-  if(k==='a'){S.dexDetail=true;return}
-  if(k==='b'){S.mode='event';S.vr();return}
-  if(k==='left')S.vi=Math.max(0,S.vi-per);
-  if(k==='right')S.vi=Math.min(total-1,S.vi+per);
-  return;
- }
- _pressBeforeDexList(k);
-};
-
 /* Replace text labels on map buildings with compact pictograms; no floating letters or words. */
 function drawHouseGlyph(kind,sx,sy,type){
  R(sx+5,sy+1,10,9,0);
@@ -1530,23 +1440,6 @@ function drawHouseGlyph(kind,sx,sy,type){
   else {R(sx+7,sy+4,6,2,0);R(sx+9,sy+2,2,6,0)}
  }
 }
-const _tileBeforeCleanGlyphs=_tileBeforeSchool;
-tile=function(c,x,y,sx,sy){
- if(c==='T'){
-  R(sx,sy,16,16,3);R(sx+1,sy+1,14,14,2);R(sx+2,sy+2,12,5,3);R(sx+3,sy+3,10,3,2);R(sx+6,sy+8,4,7,3);return;
- }
- if(c==='C'||c==='h'){
-  R(sx,sy,16,16,1);R(sx+2,sy+2,12,12,0);
- }else if(c==='G'){
-  const gym=GYMS.find(g=>g.m===cur),type=gym?ENEMIES[gym.s]?.t:'普';
-  R(sx,sy,16,16,3);R(sx+1,sy+1,14,14,1);return;
- }else{
-  _tileBeforeCleanGlyphs(c,x,y,sx,sy);
- }
- /* 第一章地圖不再顯示房屋右上角標誌。 */
- /* 不再繪製任何房屋標誌疊加，避免圖示出現在全地圖。 */
-};
-
 /* Every settlement hospital is an actual building: approach its doorway to enter, then speak to the nurse. */
 const _hospitalMaps=['town','route','school','a2','a3','a4','a5','a6'];
 for(const mapName of _hospitalMaps){
@@ -1563,11 +1456,6 @@ for(const mapName of _hospitalMaps){
  NPCS.push(Object.assign(mk(room,4,3,2,'nurse_'+mapName,['護理師：歡迎來到健康中心！需要恢復隊伍體力嗎？']),{fn:async()=>{S.mode='event';await say('護理師：歡迎來到健康中心！');healAll();await say('全隊的體力與 PP 都已經全部恢復了！');for(;;){S.prompt='還需要\n什麼服務？';const c=await choose(['電腦','存檔','離開'],1,'right');if(c===0)await pc();else if(c===1)await say(save()?'冒險已經記錄下來了！':'無法存檔……');else break}S.mode='map'}}));
 }
 /* The old instant-heal tile is no longer a service shortcut. */
-const _centerBeforeBuildingEntry=center;
-center=async function(h){
- S.mode='event';await say('請從醫院的入口進入，與護理師互動即可恢復體力。');S.mode='map';
-};
-
 /* ===== 修正包 v1：地圖進出卡住、傳說巢穴、圖示顯示 ===== */
 (function fixWorldAndIcons(){
  /* ---------- 地圖中文名稱（提示文字、清單用） ---------- */
@@ -1733,87 +1621,15 @@ center=async function(h){
  const cow=NPCS.find(n=>n.m==='route'&&n.id==='t1');if(cow)cow.id='route_t1';
 
  /* ---------- 4. 提示文字不要顯示內部代號 ---------- */
- const _sayBeforeNames=say;
- say=function(t){return _sayBeforeNames(String(t).replace(/「([A-Za-z][A-Za-z0-9_]*)」/g,(s,id)=>MAPS[id]?`「${mapName(id)}」`:s))};
-
- /* ---------- 5. 迷宮地板也會遇到怪（原本只有草/水面會遇敵，迷宮裡一隻都沒有） ---------- */
- const _arriveBeforeMazeEnc=arrive;
- arrive=async function(){
-  const m0=cur,c0=MAP[Pl.y]&&MAP[Pl.y][Pl.x];
-  await _arriveBeforeMazeEnc();
-  if((m0==='maze'||m0==='maze2')&&cur===m0&&c0==='.'&&S.mode==='map'&&BAG.repel<=0&&Math.random()<.07)battle(0,false);
- };
-
- /* ---------- 6. 圖示 ---------- */
+  /* ---------- 5. 迷宮地板也會遇到怪（原本只有草/水面會遇敵，迷宮裡一隻都沒有） ---------- */
+  /* ---------- 6. 圖示 ---------- */
  const arrowTri=(dir,sx,sy)=>{
   for(let i=0;i<6;i++){
    if(dir==='left')R(sx+3+i,sy+8-i,1,1+2*i,3);
    else if(dir==='right')R(sx+12-i,sy+8-i,1,1+2*i,3);
    else if(dir==='up')R(sx+8-i,sy+3+i,1+2*i,1,3);
    else R(sx+8-i,sy+12-i,1+2*i,1,3);}};
- const _tileBeforeFixIcons=tile;
- tile=function(c,x,y,sx,sy){
-  const warp=WARP[wk(cur,x,y)];
-  /* D：洞口／特殊地形入口 */
-  if(c==='D'){
-   R(sx,sy,16,16,0);R(sx+1,sy+2,14,14,3);R(sx+2,sy+3,12,13,2);R(sx+4,sy+5,8,11,3);R(sx+5,sy+6,6,10,0);R(sx+6,sy+7,4,3,1);
-   if(warp&&/^L\d+$/.test(warp[0])){R(sx+7,sy+3,2,1,0);R(sx+6,sy+4,4,1,0)}   // 傳說巢穴：洞口上方加星光
-   return}
-  /* E：祕密石板 */
-  if(c==='E'){
-   R(sx,sy,16,16,0);R(sx+2,sy+2,12,12,3);R(sx+3,sy+3,10,10,1);
-   R(sx+7,sy+4,2,8,3);R(sx+4,sy+7,8,2,3);R(sx+7,sy+7,2,2,0);return}
-  /* 醫院：十字 */
-  if(c==='C'||c==='h'){
-   _tileBeforeFixIcons(c,x,y,sx,sy);
-   R(sx+2,sy+2,12,12,0);R(sx+7,sy+3,2,10,3);R(sx+3,sy+7,10,2,3);return}
-  /* 道館門 / 巢穴門 / 道館出口 */
-  if(c==='G'){
-   const gym=GYMS.find(g=>g.m===cur&&g.x===x&&g.y===y);
-   R(sx,sy,16,16,3);R(sx+1,sy+1,14,14,1);
-   if(gym)T(ENEMIES[gym.s]?.t||'道',sx+3,sy+2,3,10);
-   else if(/^(g\d|gym)$/.test(cur))T('出',sx+3,sy+2,3,10);
-   else if(warp&&/^L\d+$/.test(warp[0]))T('巢',sx+3,sy+2,3,10);
-   else T('門',sx+3,sy+2,3,10);
-   return}
-  _tileBeforeFixIcons(c,x,y,sx,sy);
-  /* 一般地面上的出入口：邊緣畫箭頭、室內畫門墊 */
-  if(warp&&(c==='.'||c==='g'||c==='f')){
-   R(sx,sy,16,16,1);
-   if(x===0)arrowTri('left',sx,sy);
-   else if(x===MW-1)arrowTri('right',sx,sy);
-   else if(y===0)arrowTri('up',sx,sy);
-   else if(y===MH-1)arrowTri('down',sx,sy);
-   else{R(sx+3,sy+3,10,12,3);R(sx+4,sy+4,8,11,0);R(sx+10,sy+9,2,2,3)}
-  }
- };
-
- /* NPC 頭上的職能小標籤：商店、醫院、任務、訓練家、館主 */
- const badgeOf=n=>{
-  if(n.shop||String(n.id||'').startsWith('shop_')||n.id==='shop'||n.id==='merchant'||String(n.id||'').startsWith('merchant_'))return '$';
-  if(String(n.id||'').startsWith('nurse_'))return '+';
-  if(String(n.id||'').startsWith('boss'))return FL[n.id]?'':'王';
-  if(n.t&&!FL[n.id])return '戰';
-  if(n.q){const st=FL['q:'+n.q],qq=QUESTS[n.q];if(st==='done')return '';if(st==='active'&&qq&&qq.done())return '!G';return '!'}
-  if(String(n.id||'').startsWith('leg')&&!FL[n.id])return '★';
-  if(n.fn&&n.id==='teacher')return '師';
-  return ''};
- const _drawMapBeforeBadges=drawMap;
- drawMap=function(){
-  _drawMapBeforeBadges();
-  const pr=Math.round(Pl.prog),px=Pl.x*16+(Pl.mv?D[Pl.dir][0]*pr:0),py=Pl.y*16+(Pl.mv?D[Pl.dir][1]*pr:0);
-  const cx=Math.max(0,Math.min(MW*16-160,px-72)),cy=Math.max(0,Math.min(MH*16-132,py-58));
-  for(const n of NPCS){
-   if(n.m!==cur||(n.hide&&FL[n.id]))continue;
-   const b=badgeOf(n);if(!b)continue;
-   const bx=n.x*16-cx+3,by=n.y*16-cy-7+12;
-   if(by<13||bx<0||bx>150)continue;
-   if(b==='!G'){ctx.fillStyle='#2e9e48';ctx.fillRect(bx,by,10,9);R(bx+1,by+1,8,7,0);TC('!',bx+1,by,'#2e9e48',8);continue}
-   R(bx,by,10,9,3);R(bx+1,by+1,8,7,0);T(b,bx+1,by,3,8);}
-  /* 狀態列已併成單行，在 drawMap 內畫好，這裡不用再補 */
- };
 })();
-
 
 /* ===== 傳說巢穴 1～19：每個巢穴改成兩層迷宮（1F、2F）。
    2F 盡頭的守護者房間裡是守護者；擊敗（或收服）後會問要不要離開，
@@ -1939,33 +1755,7 @@ center=async function(h){
   WARP[`${L.f2},${L.exit[0]},${L.exit[1]}`]=L.back.slice();
  }
  /* 讀檔或再次進入 2F 時，已擊敗過守護者就保留出口 */
- const _setMapLair=setMap;
- setMap=function(n){
-  _setMapLair(n);
-  const m=/^L(\d+)F2$/.exec(n);
-  if(m&&FL['lair'+m[1]])openExit(+m[1]);
- };
-
- /* 樓梯與出口門上加上小字：上／下／出 */
- const _tileLair=tile;
- tile=function(c,x,y,sx,sy){
-  const inLair=/^L\d+(F2)?$/.test(cur);
-  if(inLair&&c==='#'){          // 巢穴的牆：石磚
-   R(sx,sy,16,16,3);R(sx+1,sy+1,14,6,2);R(sx+1,sy+9,6,6,2);R(sx+9,sy+9,6,6,2);return;
-  }
-  _tileLair(c,x,y,sx,sy);
-  if(c==='D'&&inLair){
-   const w=WARP[`${cur},${x},${y}`];
-   if(!w)return;
-   if(!/^L\d/.test(w[0])){       // 出口：小太陽
-    R(sx+7,sy+9,2,2,3);R(sx+7,sy+7,2,1,3);R(sx+7,sy+12,2,1,3);R(sx+5,sy+9,1,2,3);R(sx+10,sy+9,1,2,3);
-   }else if(/F2$/.test(w[0])){    // 往 2F：上箭頭
-    R(sx+7,sy+7,2,1,3);R(sx+6,sy+8,4,1,3);R(sx+5,sy+9,6,1,3);R(sx+7,sy+10,2,4,3);
-   }else{                         // 回 1F：下箭頭
-    R(sx+7,sy+7,2,4,3);R(sx+5,sy+11,6,1,3);R(sx+6,sy+12,4,1,3);R(sx+7,sy+13,2,1,3);
-   }
-  }
- };
+  /* 樓梯與出口門上加上小字：上／下／出 */
  window.__LAIR=LAIR;
 })();
 
@@ -2117,10 +1907,6 @@ function miniPress(k){const m=MG;if(!m)return;
  if(m.st==='play'){if(k==='b'){mgEnd(false,'放棄了挑戰');return}if(m.cd>0)return;MG_PRESS[m.k](k);return}
  if(m.st==='over'&&k==='a'&&m.tOver>.4)mgFinish();
 }
-const _pressBeforeMini=press;
-press=function(k){if(S.mode==='mini'){miniPress(k);return}_pressBeforeMini(k)};
-const _drawBeforeMini=draw;
-draw=function(){if(S.mode==='mini'&&MG){ctx.setTransform(3,0,0,3,0,0);miniUpdate();miniDraw();return}_drawBeforeMini()};
 rockPuzzle=async function(key){
  const q=ROCK_PUZZLES[key];if(!q||FL['rock:'+key])return;
  S.mode='event';
@@ -2208,25 +1994,96 @@ multiPuzzle=async function(key){
   if(nr)TC(`有 ${nr} 項任務可以交付！`,9,114,G,8);else T('在城鎮公告板接取任務',9,114,2,8);
   T('↑↓選擇　A解說　←→換頁　B關閉',9,133,2,7);
  };
- const prevPress=press;
- press=function(k){
-  if(S.mode==='view'&&S.vk==='quest'){
-   const n=ids().length,per=5,pages=Math.ceil(n/per);S.qi=S.qi||0;
-   if(S.qDetail){
-    if(k==='a'||k==='b')S.qDetail=false;
-    else if(k==='left'||k==='up')S.qi=(S.qi+n-1)%n;
-    else if(k==='right'||k==='down')S.qi=(S.qi+1)%n;
-   }else{
-    if(k==='up')S.qi=(S.qi+n-1)%n;
-    else if(k==='down')S.qi=(S.qi+1)%n;
-    else if(k==='left')S.qi=((Math.floor(S.qi/per)+pages-1)%pages)*per;
-    else if(k==='right')S.qi=((Math.floor(S.qi/per)+1)%pages)*per;
-    else if(k==='a')S.qDetail=true;
-    else if(k==='b'){S.qDetail=false;S.mode='event';S.vr()}
-   }
-   S.vi=Math.floor(S.qi/per);return}
-  prevPress(k)};
 })();
+
+
+
+/* Arrival hooks registered by map-specific features. */
+addArriveBefore(async ctx=>{
+ const pre={m:ctx.map,x:ctx.x,y:ctx.y,bx:ctx.x-D[Pl.dir][0],by:ctx.y-D[Pl.dir][1]};
+ ctx.pre=pre;ctx.oldMap=cur;
+ if(S.mode==='map'&&!specialEntryPending){
+  const target=WARP[`${cur},${Pl.x},${Pl.y}`];
+  if(target&&isSpecial(target[0])&&!isSpecial(cur)){
+   S.mode='event';
+   await say(`前方是特殊地形「${(typeof NAMES!=='undefined'&&NAMES[target[0]])||target[0]}」，裡面可能有稀有怪物。是否進入？（進入後按 B 可直接回到外面）`);
+   S.prompt='是否進入？';
+   const answer=await choose(['進入','暫不進入'],1,'right',true);
+   if(answer!==0){placeBesideDoor(pre.x,pre.y,pre.bx,pre.by);S.mode='map';return false}
+   specialReturn={m:pre.m,dx:pre.x,dy:pre.y,bx:pre.bx,by:pre.by};specialEntryPending=true;FL['entered:'+target[0]]=1;S.mode='map';
+  }
+ }
+ specialEntryPending=false;return true;
+});
+addArriveAfter(async ctx=>{
+ if(cur!==ctx.oldMap){if(!isSpecial(cur))specialReturn=null;else if(!isSpecial(ctx.oldMap)&&!specialReturn)specialReturn={m:ctx.oldMap,dx:ctx.x,dy:ctx.y,bx:ctx.x-D[Pl.dir][0],by:ctx.y-D[Pl.dir][1]}}
+ if((ctx.map==='maze'||ctx.map==='maze2')&&cur===ctx.map&&ctx.tile==='.'&&S.mode==='map'&&BAG.repel<=0&&Math.random()<.07)await battle(0,false);
+});
+
+/* Unified render/input dispatchers.  These are the only public tile(),
+   drawMap(), and press() implementations in the file. */
+function tile(c,x,y,sx,sy){
+ if(cur==='schoolInterior'&&c==='q'){R(sx,sy,16,16,3);R(sx+1,sy+1,14,8,2);R(sx+3,sy+3,10,1,0);T('星學堂',sx+3,sy+4,0,7);return}
+ if(cur==='schoolInterior'&&c==='p'){R(sx,sy,16,16,1);R(sx+2,sy+2,12,7,3);R(sx+3,sy+3,10,5,2);return}
+ if(cur==='schoolInterior'&&c==='k'){R(sx,sy,16,16,1);R(sx+2,sy+3,12,8,3);R(sx+3,sy+4,10,6,2);R(sx+6,sy+11,4,3,3);return}
+ const lair=/^L\d+(F2)?$/.test(cur),warp=WARP[`${cur},${x},${y}`];
+ if(lair&&c==='#'){R(sx,sy,16,16,3);R(sx+1,sy+1,14,6,2);R(sx+1,sy+9,6,6,2);R(sx+9,sy+9,6,6,2);return}
+ if(lair&&['~','^','*','+','o'].includes(c)){R(sx,sy,16,16,1);if(c==='~'){R(sx+2,sy+4,7,2,2);R(sx+7,sy+10,7,2,2)}else if(c==='^'){R(sx+2,sy+10,12,4,3);R(sx+5,sy+5,3,6,2);R(sx+10,sy+3,3,8,3)}else if(c==='*')T('✦',sx+4,sy+2,3,10);else if(c==='+'){R(sx+7,sy+3,2,10,3);R(sx+3,sy+7,10,2,3)}else{ell(sx+8,sy+8,5,5,3);ell(sx+8,sy+8,2,2,0)}return}
+ if(c==='D'){R(sx,sy,16,16,0);R(sx+1,sy+2,14,14,3);R(sx+2,sy+3,12,13,2);R(sx+4,sy+5,8,11,3);R(sx+5,sy+6,6,10,0);R(sx+6,sy+7,4,3,1);if(warp&&/^L\d+$/.test(warp[0])){R(sx+7,sy+3,2,1,0);R(sx+6,sy+4,4,1,0)}if(lair&&warp){if(!/^L\d/.test(warp[0])){R(sx+7,sy+9,2,2,3);R(sx+7,sy+7,2,1,3);R(sx+7,sy+12,2,1,3);R(sx+5,sy+9,1,2,3);R(sx+10,sy+9,1,2,3)}else if(/F2$/.test(warp[0])){R(sx+7,sy+7,2,1,3);R(sx+6,sy+8,4,1,3);R(sx+5,sy+9,6,1,3);R(sx+7,sy+10,2,4,3)}else{R(sx+7,sy+7,2,4,3);R(sx+5,sy+11,6,1,3);R(sx+6,sy+12,4,1,3);R(sx+7,sy+13,2,1,3)}}return}
+ if(c==='E'){R(sx,sy,16,16,0);R(sx+2,sy+2,12,12,3);R(sx+3,sy+3,10,10,1);R(sx+7,sy+4,2,8,3);R(sx+4,sy+7,8,2,3);R(sx+7,sy+7,2,2,0);return}
+ if(c==='T'){R(sx,sy,16,16,3);R(sx+1,sy+1,14,14,2);R(sx+2,sy+2,12,5,3);R(sx+3,sy+3,10,3,2);R(sx+6,sy+8,4,7,3);return}
+ if(c==='C'||c==='h'){R(sx,sy,16,16,1);R(sx+2,sy+2,12,12,0);R(sx+7,sy+3,2,10,3);R(sx+3,sy+7,10,2,3);return}
+ if(c==='G'){const gym=GYMS.find(g=>g.m===cur),label=gym?ENEMIES[gym.s]?.t:(lair?'出':'門');R(sx,sy,16,16,3);R(sx+1,sy+1,14,14,1);T(label,sx+3,sy+2,3,10);return}
+ drawBaseTile(c,x,y,sx,sy);
+ if(warp&&(c==='.'||c==='g'||c==='f')){R(sx,sy,16,16,1);if(x===0)for(let i=0;i<6;i++)R(sx+3+i,sy+8-i,1,1+2*i,3);else if(x===MW-1)for(let i=0;i<6;i++)R(sx+12-i,sy+8-i,1,1+2*i,3);else if(y===0)for(let i=0;i<6;i++)R(sx+8-i,sy+3+i,1+2*i,1,3);else if(y===MH-1)for(let i=0;i<6;i++)R(sx+8-i,sy+12-i,1+2*i,1,3);else{R(sx+3,sy+3,10,12,3);R(sx+4,sy+4,8,11,0);R(sx+10,sy+9,2,2,3)}}
+}
+function drawMap(){
+ drawBaseMap();
+ if(cur==='schoolInterior'){R(39,17,82,13,3);R(42,19,76,8,0);T('星學堂｜屬性課程',48,20,2,7);R(72,48,16,10,3);R(74,49,12,7,2);[[48,83],[96,83]].forEach(([x,y])=>{R(x,y,18,10,3);R(x+2,y+2,14,6,2);R(x+3,y+10,3,5,3);R(x+12,y+10,3,5,3)})}
+ const pr=Math.round(Pl.prog),px=Pl.x*16+(Pl.mv?D[Pl.dir][0]*pr:0),py=Pl.y*16+(Pl.mv?D[Pl.dir][1]*pr:0),cx=Math.max(0,Math.min(MW*16-160,px-72)),cy=Math.max(0,Math.min(MH*16-132,py-58));
+ const badge=n=>{if(n.shop||String(n.id||'').startsWith('shop_')||n.id==='shop'||n.id==='merchant'||String(n.id||'').startsWith('merchant_'))return'$';if(String(n.id||'').startsWith('nurse_'))return'+';if(String(n.id||'').startsWith('boss'))return FL[n.id]?'':'王';if(n.t&&!FL[n.id])return'戰';if(n.q){const st=FL['q:'+n.q],qq=QUESTS[n.q];return st==='done'?'':(st==='active'&&qq&&qq.done()?'!G':'!')}if(String(n.id||'').startsWith('leg')&&!FL[n.id])return'★';if(n.fn&&n.id==='teacher')return'師';return''};
+ for(const n of NPCS){if(n.m!==cur||(n.hide&&FL[n.id]))continue;const b=badge(n);if(!b)continue;const bx=n.x*16-cx+3,by=n.y*16-cy+5;if(by<13||bx<0||bx>150)continue;if(b==='!G'){ctx.fillStyle='#2e9e48';ctx.fillRect(bx,by,10,9);R(bx+1,by+1,8,7,0);TC('!',bx+1,by,'#2e9e48',8);continue}R(bx,by,10,9,3);R(bx+1,by+1,8,7,0);T(b,bx+1,by,3,8)}
+}
+function press(k){
+ if(S.mode==='mini'){miniPress(k);return}
+ if(S.mode==='view'&&S.vk==='dex'){const total=ENEMIES.length,per=8;if(S.dexDetail){if(k==='a'){S.dexDetail=false;return}if(k==='b'){S.dexDetail=false;S.mode='event';S.vr();return}if(k==='left')S.vi=(S.vi+total-1)%total;if(k==='right')S.vi=(S.vi+1)%total;return}if(k==='up')S.vi=(S.vi+total-1)%total;if(k==='down')S.vi=(S.vi+1)%total;if(k==='a'){S.dexDetail=true;return}if(k==='b'){S.mode='event';S.vr();return}if(k==='left')S.vi=Math.max(0,S.vi-per);if(k==='right')S.vi=Math.min(total-1,S.vi+per);return}
+ if(S.mode==='view'&&S.vk==='quest'){const n=Object.keys(QUESTS).length,per=5,pages=Math.ceil(n/per);S.qi=S.qi||0;if(S.qDetail){if(k==='a'||k==='b')S.qDetail=false;else if(k==='left'||k==='up')S.qi=(S.qi+n-1)%n;else if(k==='right'||k==='down')S.qi=(S.qi+1)%n}else{if(k==='up')S.qi=(S.qi+n-1)%n;else if(k==='down')S.qi=(S.qi+1)%n;else if(k==='left')S.qi=((Math.floor(S.qi/per)+pages-1)%pages)*per;else if(k==='right')S.qi=((Math.floor(S.qi/per)+1)%pages)*per;else if(k==='a')S.qDetail=true;else if(k==='b'){S.qDetail=false;S.mode='event';S.vr()}}S.vi=Math.floor(S.qi/per);return}
+ if(k==='b'&&S.mode==='map'&&!S.msg&&!S.menu&&isSpecial(cur)){const back=specialReturn||findSpecialDoor(cur);if(!back){say('找不到入口記錄，請走向地圖上的出口離開。');return}specialReturn=null;surf=false;bExitHint=true;setMap(back.m);placeBesideDoor(back.dx,back.dy,back.bx,back.by);say('已離開特殊地形，回到外面了。');return}
+ if(k==='y'&&S.mode==='map'&&!S.msg&&!S.menu){S.mode='worldmap';return}if(k==='y'&&S.mode==='worldmap'){S.mode='map';return}if(k==='x'&&S.mode==='map'&&!S.msg&&!S.menu){field();return}if(k==='b'&&S.mode==='map'&&!S.msg&&!S.menu){if(bExitHint){bExitHint=false;say('你已經在外面了。B 只用來離開特殊地形；X 開選單，Y 看地圖。')}return}if(S.mode==='worldmap'){if(k==='b'||k==='x'||k==='a'){S.mode='map';return}if(['left','right','up','down'].includes(k))return}
+ pressCore(k);
+}
+
+
+/* Unified render/UI/world hooks. */
+function say(t){
+ const text=String(t).replace(/「([A-Za-z][A-Za-z0-9_]*)」/g,(m,id)=>MAPS[id]?`「${mapName(id)}」`:m);
+ return sayBase(text);
+}
+function setMap(n){
+ setMapBase(n);
+ const m=/^L(\d+)F2$/.exec(n);
+ if(m&&window.__openLairExit)window.__openLairExit(+m[1]);
+}
+function center(h){
+ if(h){S.mode='event';say('請從醫院的入口進入，與護理師互動即可恢復體力。').then(()=>{S.mode='map'});return}
+ return centerBase(h);
+}
+function talk(N){
+ if(N.shop&&!cur.startsWith('shop_')){S.mode='event';say('商店位於獨立建築內，請先進入商店再購買商品。').then(()=>{S.mode='map'});return}
+ return talkBase(N);
+}
+function drawUI(){
+ if(S.mode==='battle'&&S.menu&&B&&B.moveMenu){const m=S.menu;box(2,96,156,46);T('選擇招式',8,99,2,8);m.o.forEach((o,i)=>{const col=i%2,row=Math.floor(i/2),x=8+col*76,y=112+row*14,label=String(o).replace(/\s*PP\s*/,'　PP');T(fitText((m.i===i?'▶':'')+label,72,7),x,y,3,7)});return}
+ drawUIBase();
+}
+function draw(){
+ if(S.mode==='worldmap'){
+  ctx.setTransform(3,0,0,3,0,0);R(0,0,160,144,0);box(2,2,156,140);T('世界地圖',10,8,2,12);
+  [['豬豬鎮','town'],['月影森林','forest'],['藍濱水族城','route'],['星學堂','school'],['花語城','a2'],['雷鳴城','a3'],['烈焰城','a4'],['礦石城','a5'],['冰晶城','a6']].forEach((r,i)=>{const x=10+(i%2)*75,y=28+Math.floor(i/2)*19;T((cur===r[1]?'▶ ':'　')+r[0],x,y,cur===r[1]?1:3,8)});T('Y／B／X／A：返回遊戲',10,128,2,8);return;
+ }
+ if(S.mode==='mini'&&MG){ctx.setTransform(3,0,0,3,0,0);miniUpdate();miniDraw();return}
+ drawBase();
+}
 
 MU.bind(document.getElementById('mu'));
 tick();
